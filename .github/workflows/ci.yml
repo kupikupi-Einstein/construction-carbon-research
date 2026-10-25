@@ -1,0 +1,37 @@
+name: Verify carbon research app
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - name: Install Python dependencies
+        run: python -m pip install -r requirements.lock
+      - name: Install frontend dependencies
+        run: npm --prefix apps/carbon_research_web ci
+      - name: Lint Python
+        run: python -m ruff check apps packages tests
+      - name: Type-check Python
+        run: python -m mypy -m apps.api.carbon -m civil_workflows.carbon.engine
+        env:
+          PYTHONPATH: .;packages
+      - name: Test API and exports
+        run: python -m pytest -q tests/integration/test_carbon_research_api.py
+        env:
+          PYTHONPATH: .;packages
+      - name: Build frontend
+        run: npm --prefix apps/carbon_research_web run build

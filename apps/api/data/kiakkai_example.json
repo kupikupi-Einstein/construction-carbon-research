@@ -1,0 +1,36 @@
+{
+  "schema_version": "civil.carbon.project.v1",
+  "name": "ตัวอย่าง BOQ เกียกกาย ช่วง 3 — ฐานราก FB-2 (บางส่วน)",
+  "asset_type": "bridge",
+  "description": "ตัวอย่างการคำนวณเฉพาะคอนกรีตฐานราก pile cap FB-2 รายการ 5.1.2.1 หน้า 2 ของ BOQ ที่ผู้ใช้ให้มา สมมติฐานคอนกรีตเต็มทรงสี่เหลี่ยมและใช้ EPD คอนกรีต CPAC 280 KSC เพื่อสาธิตเท่านั้น ยังไม่ยืนยัน mix design, เหล็กเสริม, แบบหล่อ, A4 หรือ A5 ห้ามใช้เป็นผลรวมของโครงการหรือคาร์บอนเครดิต",
+  "rows": [
+    {
+      "row_id": "boq-p2-5.1.2.1-concrete-proxy",
+      "item_name": "คอนกรีต pile cap FB-2 — ตัวอย่างจาก BOQ 18 ฐาน",
+      "category": "foundation-concrete",
+      "stage": "A1-A3",
+      "quantity": {
+        "kind": "volume",
+        "input_value": 891,
+        "input_unit": "meter ** 3"
+      },
+      "factor": {
+        "numerator": {
+          "kind": "ghg_emission",
+          "input_value": 268,
+          "input_unit": "kilogram"
+        },
+        "denominator": {
+          "kind": "volume",
+          "input_value": 1,
+          "input_unit": "meter ** 3"
+        },
+        "source_name": "CPAC Normal concrete 280 KSC, EPD-IES-0017806:001, GWP-total A1–A3",
+        "source_version": "2024-11-20",
+        "source_url": "https://www.environdec.com/library/epd17806"
+      },
+      "evidence_ref": "BOQ เกียกกาย ช่วง 3 หน้า 2 รายการ 5.1.2.1: 18 ฐาน ขนาด 3.00 × 6.60 × 2.50 ม.; สมมติคอนกรีตเต็มปริมาตร = 18 × 3.00 × 6.60 × 2.50 = 891 ลบ.ม. EPD หน้า 15 ตาราง GWP-total: A1–A3 = 268 kgCO2e/ลบ.ม.; ยังไม่ยืนยันกำลังอัดคอนกรีตตามแบบ"
+    }
+  ],
+  "tver": null
+}
