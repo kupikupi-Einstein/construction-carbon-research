@@ -1,0 +1,8 @@
+fastapi==0.141.1
+pydantic==2.13.5
+pint==0.25.3
+uvicorn==0.52.4
+python-multipart==0.0.32
+reportlab==4.4.4
+XlsxWriter==3.2.5
+python-docx==1.2.0
