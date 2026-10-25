@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { api, browserProjectMode } from "./api";
 import { calculationPreview, needsFactor, normalizeProject, pauseFactor, resumeFactor } from "./factorStatus";
 import { findingText, tr } from "./i18n";
 import { findMatchingProject, projectContextKey, readProjectContext } from "./projectWorkspace";
+import { draftStorageKey, shouldLoadStarterExample, starterSeenKey } from "./starterWorkspace";
 import type {
   ActivityRow,
   AssetType,
@@ -119,14 +120,15 @@ const safeUrl = (value?: string | null) => {
 export default function App() {
   const [locale, setLocale] = useState<Locale>("th-TH");
   const t = (key: Parameters<typeof tr>[0]) => tr(key, locale);
-  const [view, setView] = useState<View>("overview");
+  const [initialContext] = useState(() => readProjectContext(localStorage));
+  const [starterPending, setStarterPending] = useState(() => shouldLoadStarterExample(localStorage, browserProjectMode, Boolean(initialContext.projectId)));
+  const [view, setView] = useState<View>(starterPending ? "results" : "overview");
   const [projects, setProjects] = useState<ProjectRevision[]>([]);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [legacyMatchPending, setLegacyMatchPending] = useState(() => localStorage.getItem(projectContextKey) === null);
-  const [initialContext] = useState(() => readProjectContext(localStorage));
   const [draft, setDraft] = useState<ProjectInput>(() => {
     try {
-      const saved = localStorage.getItem("carbon-research-draft-v1");
+      const saved = localStorage.getItem(draftStorageKey);
       return saved ? normalizeProject(JSON.parse(saved) as ProjectInput) : emptyProject();
     } catch { return emptyProject(); }
   });
@@ -137,8 +139,9 @@ export default function App() {
   const [result, setResult] = useState<CarbonResult | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const skipAutoCalculationFor = useRef<ProjectInput | null>(null);
 
-  useEffect(() => { localStorage.setItem("carbon-research-draft-v1", JSON.stringify(draft)); }, [draft]);
+  useEffect(() => { localStorage.setItem(draftStorageKey, JSON.stringify(draft)); }, [draft]);
   useEffect(() => {
     localStorage.setItem(projectContextKey, JSON.stringify({ projectId, latestRevision, selectedRevision }));
   }, [projectId, latestRevision, selectedRevision]);
@@ -146,6 +149,30 @@ export default function App() {
   useEffect(() => {
     void api.list().then((saved) => { setProjects(saved); setProjectsLoaded(true); }).catch(console.error);
   }, []);
+  useEffect(() => {
+    if (!starterPending || !projectsLoaded) return;
+    if (projects.length || projectId) { setView("overview"); setStarterPending(false); return; }
+    let active = true;
+    void (async () => {
+      try {
+        const example = await api.kiakkaiExample();
+        const calculated = await api.calculate(example);
+        if (!active) return;
+        localStorage.setItem(starterSeenKey, "1");
+        skipAutoCalculationFor.current = example;
+        setDraft(example);
+        setResult(calculated);
+        setView("results");
+        setMessage(t("starterLoaded"));
+      } catch (error) {
+        console.error(error);
+        if (active) { setView("inputs"); setMessage(t("starterLoadFailed")); }
+      } finally {
+        if (active) setStarterPending(false);
+      }
+    })();
+    return () => { active = false; };
+  }, [starterPending, projectsLoaded, projects.length, projectId]);
   useEffect(() => {
     if (!projectsLoaded || !legacyMatchPending) return;
     setLegacyMatchPending(false);
@@ -175,6 +202,7 @@ export default function App() {
     }).catch(console.error);
   }, []);
   useEffect(() => {
+    if (skipAutoCalculationFor.current === draft) { skipAutoCalculationFor.current = null; return; }
     if (!draft.name.trim() || draft.rows.some((row) => !row.item_name.trim())) {
       setResult(null);
       return;
@@ -192,6 +220,11 @@ export default function App() {
   const comparison = revisions.length > 1 ? revisions[0] : null;
   const incompleteFactorRows = draft.rows.filter(needsFactor);
   const resultRows = useMemo(() => new Map(result?.rows.map((row) => [row.row_id, row]) ?? []), [result]);
+
+  if (starterPending) return <div className="app-shell"><main className="main-area" style={{ gridColumn: "1 / -1" }}>
+    <div className="content"><section className="card empty-state" role="status" aria-live="polite">
+      <h1>{t("brand")}</h1><h2>{t("starterLoading")}</h2><p>{t("starterLoadingHint")}</p>
+    </section></div></main></div>;
 
   async function openProject(id: string) {
     setBusy(true);
@@ -462,7 +495,7 @@ export default function App() {
             {result.pending_row_ids.map((id) => { const input = draft.rows.find((row) => row.row_id === id); return <details key={id}><summary><span>{input?.item_name ?? id}</span><strong>{t("pendingExcluded")}</strong></summary><div className="trace-detail"><p>{input ? quantityText(input.quantity) : "—"}</p><p><strong>{t("traceBoqEvidence")}:</strong> {input?.evidence_ref || "—"}</p><p>{input && needsFactor(input) ? t("factorRequired") : t("pendingHint")}</p></div></details>; })}
           </section>
           {result.tver && <section className="card tver-result"><div className="card-kicker">T-VER</div><h2>{t("screening")}</h2><div className="credit-number">{number(tonnes(result.tver.estimated_reduction))} <span>tCO₂e</span></div><p>{t("estimate")}: {result.tver.methodology_id}</p><div className="status-pill">{result.tver.screening_status === "potentially_applicable" ? t("potential") : result.tver.screening_status === "not_applicable" ? t("notApplicable") : t("insufficient")}</div><p className="credit-notice">{t("noCredits")}</p><ul>{result.tver.findings.map((finding) => <li key={finding}>{findingText(finding, locale)}</li>)}</ul></section>}
-        </> : <section className="card empty-state"><div className="empty-icon">◇</div><h2>{t("dataGap")}</h2><Button onClick={() => void calculate()} disabled={busy}>{t("preview")}</Button></section>}</div>}
+        </> : <section className="card empty-state"><div className="empty-icon">◇</div><h2>{t("dataGap")}</h2><p>{t("emptyResultHint")}</p><Button onClick={() => void loadExample()} secondary disabled={busy}>{t("loadExample")}</Button><Button onClick={() => void calculate()} disabled={busy}>{t("preview")}</Button></section>}</div>}
 
         {view === "exports" && <section className="card export-card"><div className="card-kicker">{t("outputKicker")}</div><h2>{t("exports")}</h2><p>{t("exportIntro")}</p>
           {projectId && selectedRevision ? <><Field label={t("current")}><select value={selectedRevision} onChange={(event) => chooseRevision(Number(event.target.value))}>{revisions.map((revision) => <option key={revision.revision_id} value={revision.revision_number}>{t("revision")} {revision.revision_number} · {new Date(revision.created_at).toLocaleDateString(locale)}</option>)}</select></Field>
