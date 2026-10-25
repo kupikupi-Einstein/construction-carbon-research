@@ -9,10 +9,15 @@ FROM python:3.14-slim-bookworm
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app:/app/packages \
-    CIVIL_CARBON_PUBLIC_MODE=1
+    CIVIL_CARBON_PUBLIC_MODE=1 \
+    CIVIL_CARBON_PDF_FONT=/usr/share/fonts/truetype/noto/NotoSansThai-Regular.ttf
 WORKDIR /app
 COPY requirements.lock ./
-RUN pip install --no-cache-dir -r requirements.lock \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-noto-core \
+    && test -f "$CIVIL_CARBON_PDF_FONT" \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir -r requirements.lock \
     && useradd --create-home --uid 10001 appuser
 COPY --chown=appuser:appuser apps/ ./apps/
 COPY --chown=appuser:appuser packages/ ./packages/
