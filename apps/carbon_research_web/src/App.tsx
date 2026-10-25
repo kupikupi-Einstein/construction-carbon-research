@@ -3,6 +3,7 @@ import type { ChangeEvent, ReactNode } from "react";
 import { api } from "./api";
 import { calculationPreview, needsFactor, normalizeProject, pauseFactor, resumeFactor } from "./factorStatus";
 import { findingText, tr } from "./i18n";
+import { findMatchingProject, projectContextKey, readProjectContext } from "./projectWorkspace";
 import type {
   ActivityRow,
   AssetType,
@@ -120,23 +121,53 @@ export default function App() {
   const t = (key: Parameters<typeof tr>[0]) => tr(key, locale);
   const [view, setView] = useState<View>("overview");
   const [projects, setProjects] = useState<ProjectRevision[]>([]);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [legacyMatchPending, setLegacyMatchPending] = useState(() => localStorage.getItem(projectContextKey) === null);
+  const [initialContext] = useState(() => readProjectContext(localStorage));
   const [draft, setDraft] = useState<ProjectInput>(() => {
     try {
       const saved = localStorage.getItem("carbon-research-draft-v1");
       return saved ? normalizeProject(JSON.parse(saved) as ProjectInput) : emptyProject();
     } catch { return emptyProject(); }
   });
-  const [projectId, setProjectId] = useState<string | null>(null);
-  const [latestRevision, setLatestRevision] = useState<number | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(initialContext.projectId);
+  const [latestRevision, setLatestRevision] = useState<number | null>(initialContext.latestRevision);
   const [revisions, setRevisions] = useState<ProjectRevision[]>([]);
-  const [selectedRevision, setSelectedRevision] = useState<number | null>(null);
+  const [selectedRevision, setSelectedRevision] = useState<number | null>(initialContext.selectedRevision);
   const [result, setResult] = useState<CarbonResult | null>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { localStorage.setItem("carbon-research-draft-v1", JSON.stringify(draft)); }, [draft]);
+  useEffect(() => {
+    localStorage.setItem(projectContextKey, JSON.stringify({ projectId, latestRevision, selectedRevision }));
+  }, [projectId, latestRevision, selectedRevision]);
   useEffect(() => { document.title = t("brand"); }, [locale]);
-  useEffect(() => { void api.list().then(setProjects).catch(console.error); }, []);
+  useEffect(() => {
+    void api.list().then((saved) => { setProjects(saved); setProjectsLoaded(true); }).catch(console.error);
+  }, []);
+  useEffect(() => {
+    if (!projectsLoaded || !legacyMatchPending) return;
+    setLegacyMatchPending(false);
+    if (projectId) return;
+    const match = findMatchingProject(draft, projects);
+    if (!match) return;
+    setProjectId(match.project_id);
+    setLatestRevision(match.revision_number);
+    setSelectedRevision(match.revision_number);
+  }, [projectsLoaded, legacyMatchPending, projectId, projects, draft]);
+  useEffect(() => {
+    if (!projectId) return;
+    let active = true;
+    void Promise.all([api.get(projectId), api.revisions(projectId)]).then(([latest, history]) => {
+      if (!active) return;
+      setLatestRevision(latest.revision_number);
+      setRevisions(history);
+      setSelectedRevision((current) => current && history.some((item) => item.revision_number === current)
+        ? current : latest.revision_number);
+    }).catch(console.error);
+    return () => { active = false; };
+  }, [projectId]);
   useEffect(() => {
     if (!isLegacyExample(draft)) return;
     void api.kiakkaiExample().then((example) => {
@@ -284,10 +315,14 @@ export default function App() {
     try {
       const example = await api.kiakkaiExample();
       const calculated = await api.calculate(example);
-      setProjectId(null);
-      setLatestRevision(null);
+      const savedProjects = projectsLoaded ? projects : await api.list();
+      const match = findMatchingProject(example, savedProjects);
+      setProjects(savedProjects);
+      setProjectsLoaded(true);
+      setProjectId(match?.project_id ?? null);
+      setLatestRevision(match?.revision_number ?? null);
       setRevisions([]);
-      setSelectedRevision(null);
+      setSelectedRevision(match?.revision_number ?? null);
       setDraft(example);
       setResult(calculated);
       setView("inputs");
@@ -315,14 +350,14 @@ export default function App() {
       <div className="brand"><div className="brand-mark">◈</div><div><strong>{t("brand")}</strong><span>{t("subtitle")}</span></div></div>
       <div className="sidebar-section"><div className="sidebar-label">{t("projects")} <span>{projects.length}</span></div><Button onClick={newProject} secondary>{t("newProject")}</Button></div>
       <div className="project-list" aria-label={t("projects")}>
-        {!projectId && <button className="project-link active" onClick={() => setView("inputs")}>
+        {(!projectId || (projectsLoaded && !projects.some((item) => item.project_id === projectId))) && <button className="project-link active" onClick={() => setView("inputs")}>
           <span className="project-dot" /><span><strong>{draft.name || t("untitled")}</strong><small>{t("localDraft")} · {draft.rows.length} {t("rows")}</small></span>
         </button>}
         {projects.length === 0 && <p className="sidebar-empty">{t("noProjects")}</p>}
         {projects.map((revision) =>
         <button key={revision.project_id} className={`project-link${projectId === revision.project_id ? " active" : ""}`}
-          onClick={() => void openProject(revision.project_id)}>
-          <span className="project-dot" /><span><strong>{revision.project.name}</strong><small>{t("revision")} {revision.revision_number} · {revision.project.rows.length} {t("rows")} · {t(revision.project.asset_type)}</small></span>
+          onClick={() => projectId === revision.project_id ? setView("overview") : void openProject(revision.project_id)}>
+          <span className="project-dot" /><span><strong>{revision.project.name}</strong><small>{t("revision")} {revision.revision_number} · {revision.project.rows.length} {t("rows")} · {t(revision.project.asset_type)}{projectId === revision.project_id ? ` · ${t("localDraft")}` : ""}</small></span>
         </button>)}</div>
       <div className="sidebar-foot">{t("draft")}</div>
     </aside>
