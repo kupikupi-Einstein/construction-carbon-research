@@ -1,8 +1,8 @@
 {
   "schema_version": "civil.carbon.project.v1",
-  "name": "ตัวอย่าง BOQ เกียกกาย ช่วง 3 — ฐานราก FB-2 (บางส่วน)",
+  "name": "ตัวอย่าง BOQ เกียกกาย ช่วง 3 — คอนกรีตและแอสฟัลต์ (บางส่วน)",
   "asset_type": "bridge",
-  "description": "ตัวอย่างการคำนวณเฉพาะคอนกรีตฐานราก pile cap FB-2 รายการ 5.1.2.1 หน้า 2 ของ BOQ ที่ผู้ใช้ให้มา สมมติฐานคอนกรีตเต็มทรงสี่เหลี่ยมและใช้ EPD คอนกรีต CPAC 280 KSC เพื่อสาธิตเท่านั้น ยังไม่ยืนยัน mix design, เหล็กเสริม, แบบหล่อ, A4 หรือ A5 ห้ามใช้เป็นผลรวมของโครงการหรือคาร์บอนเครดิต",
+  "description": "ตัวอย่างบางส่วนจาก BOQ หน้า 2: คอนกรีตฐานราก FB-2 และแอสฟัลต์คอนกรีตหนา 5 ซม. ใช้ EPD สาธิตที่ยังไม่ยืนยันผลิตภัณฑ์จริง แอสฟัลต์สมมติความหนาแน่น 2.4 ตัน/ลบ.ม. และใช้ EPD เฉลี่ยจากสหราชอาณาจักรซึ่งอาจไม่ตรงกับสูตรผสม/ชั้นทางในไทย ยังไม่รวมเหล็กเสริม ท่อ HDPE แบบหล่อ A4 A5 หรืองานอื่น ห้ามใช้เป็นผลรวมโครงการหรือคาร์บอนเครดิต",
   "rows": [
     {
       "row_id": "boq-p2-5.1.2.1-concrete-proxy",
@@ -30,6 +30,33 @@
         "source_url": "https://www.environdec.com/library/epd17806"
       },
       "evidence_ref": "BOQ เกียกกาย ช่วง 3 หน้า 2 รายการ 5.1.2.1: 18 ฐาน ขนาด 3.00 × 6.60 × 2.50 ม.; สมมติคอนกรีตเต็มปริมาตร = 18 × 3.00 × 6.60 × 2.50 = 891 ลบ.ม. EPD หน้า 15 ตาราง GWP-total: A1–A3 = 268 kgCO2e/ลบ.ม.; ยังไม่ยืนยันกำลังอัดคอนกรีตตามแบบ"
+    },
+    {
+      "row_id": "boq-p2-4.2-asphalt-proxy",
+      "item_name": "แอสฟัลต์คอนกรีตหนา 5 ซม. — ตัวอย่างจาก BOQ",
+      "category": "road-asphalt",
+      "stage": "A1-A3",
+      "quantity": {
+        "kind": "mass",
+        "input_value": 2544,
+        "input_unit": "tonne"
+      },
+      "factor": {
+        "numerator": {
+          "kind": "ghg_emission",
+          "input_value": 52.18,
+          "input_unit": "kilogram"
+        },
+        "denominator": {
+          "kind": "mass",
+          "input_value": 1,
+          "input_unit": "tonne"
+        },
+        "source_name": "MPA Sector Level Asphalt Concrete, EPD HUB-1655, GWP-total A1–A3 (UK base/binder proxy)",
+        "source_version": "2024-08-18; data year 2022",
+        "source_url": "https://www.mineralproducts.org/MPA/media/root/Publications/Asphalt/EPDS/EPD_Mineral_Products_Association_Ltd_Asphalt_MPA_Sector_Level_AC_HUB-1655_2024-08-19.pdf"
+      },
+      "evidence_ref": "BOQ เกียกกาย ช่วง 3 หน้า 2 รายการ 4.2: 21,200 ตร.ม. หนา 5 ซม.; 21,200 × 0.05 = 1,060 ลบ.ม.; สมมติความหนาแน่นหลังบดอัด 2.4 ตัน/ลบ.ม. จึงได้ 2,544 ตัน (ต้องตรวจจริง). EPD MPA HUB-1655 หน้า 2 ตาราง GWP-total A1–A3 = 52.18 kgCO2e/ตัน เป็นค่าเฉลี่ย UK สำหรับ base/binder; ยังไม่ยืนยันว่าเทียบกับ asphalt mix/ชั้นทางใน BOQ ได้"
     }
   ],
   "tver": null

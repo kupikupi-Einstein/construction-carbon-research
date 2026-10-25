@@ -222,11 +222,22 @@ def test_kiakkai_boq_worked_example_exposes_source_and_trace() -> None:
     assert response.status_code == 200, response.text
     example = response.json()
     assert example["asset_type"] == "bridge"
+    assert len(example["rows"]) == 2
     assert example["rows"][0]["quantity"]["input_value"] == 891
     assert example["rows"][0]["factor"]["numerator"]["input_value"] == 268
     assert "epd17806" in example["rows"][0]["factor"]["source_url"]
+    asphalt = example["rows"][1]
+    assert asphalt["category"] == "road-asphalt"
+    assert asphalt["quantity"]["input_value"] == 2544
+    assert asphalt["quantity"]["input_unit"] == "tonne"
+    assert asphalt["factor"]["numerator"]["input_value"] == 52.18
+    assert "2.4" in asphalt["evidence_ref"]
+    assert "mineralproducts.org" in asphalt["factor"]["source_url"]
     result = client.post("/api/v1/carbon/calculate", json=example)
     assert result.status_code == 200, result.text
-    assert result.json()["total_emission"]["input_value"] == 238_788
+    assert result.json()["total_emission"]["input_value"] == pytest.approx(371_533.92)
+    assert result.json()["rows"][1]["emission"]["input_value"] == pytest.approx(132_745.92)
+    asphalt_trace = result.json()["rows"][1]["trace"]
+    assert asphalt_trace["operands"]["factor_denominator"]["input_unit"] == "tonne"
     assert result.json()["rows"][0]["trace"]["operands"]["activity_quantity"]["input_value"] == 891
     assert result.json()["tver"] is None
