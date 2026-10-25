@@ -56,16 +56,20 @@ def _rows(revision: ProjectRevision, locale: str) -> list[list[str]]:
     ]
     for item in revision.project.rows:
         factor = item.factor
+        emission = result_by_id.get(item.row_id)
         rows.append(
             [
                 item.item_name,
                 item.category,
                 item.stage.value,
                 _quantity(item.quantity),
-                f"{_quantity(factor.numerator)} / {_quantity(factor.denominator)}",
-                f"{factor.source_name} ({factor.source_version}) {factor.source_url or ''}".strip(),
+                f"{_quantity(factor.numerator)} / {_quantity(factor.denominator)}"
+                if factor else t("pending_factor"),
+                f"{factor.source_name} ({factor.source_version}) {factor.source_url or ''}".strip()
+                if factor else t("pending_factor"),
                 item.evidence_ref or "—",
-                f"{_fmt(result_by_id[item.row_id].emission.to('kilogram'))} kgCO2e",
+                f"{_fmt(emission.emission.to('kilogram'))} kgCO2e"
+                if emission else t("pending_factor"),
             ]
         )
     return rows
@@ -81,9 +85,12 @@ def _metadata(revision: ProjectRevision, locale: str) -> list[tuple[str, str]]:
         (t("revision"), str(revision.revision_number)),
         (t("created_at"), revision.created_at.isoformat()),
         (t("hash"), revision.input_snapshot_hash),
-        (t("total"), f"{_fmt(revision.result.total_emission.to('kilogram'))} kgCO2e"),
+        (t("total"), f"{_fmt(revision.result.total_emission.to('kilogram'))} kgCO2e"
+         if revision.result.rows else t("pending_factor")),
         (t("reviewer"), t("not_assigned")),
     ]
+    if revision.result.pending_row_ids:
+        lines.append((t("partial_total"), ", ".join(revision.result.pending_row_ids)))
     if revision.result.tver:
         lines.extend(
             [
@@ -224,15 +231,21 @@ def render_carbon_xlsx(revision: ProjectRevision, locale: str = "th-TH") -> byte
         data.write_number(index, 3, item.quantity.input_value)
         data.write(index, 4, item.quantity.kind)
         data.write(index, 5, item.quantity.input_unit)
-        data.write_number(index, 6, factor.numerator.input_value)
-        data.write(index, 7, factor.numerator.input_unit)
-        data.write_number(index, 8, factor.denominator.input_value)
-        data.write(index, 9, factor.denominator.kind)
-        data.write(index, 10, factor.denominator.input_unit)
-        data.write(index, 11, f"{factor.source_name} ({factor.source_version})")
-        data.write(index, 12, factor.source_url or "")
+        if factor:
+            data.write_number(index, 6, factor.numerator.input_value)
+            data.write(index, 7, factor.numerator.input_unit)
+            data.write_number(index, 8, factor.denominator.input_value)
+            data.write(index, 9, factor.denominator.kind)
+            data.write(index, 10, factor.denominator.input_unit)
+            data.write(index, 11, f"{factor.source_name} ({factor.source_version})")
+            data.write(index, 12, factor.source_url or "")
+        else:
+            data.write(index, 6, t("pending_factor"))
         data.write(index, 13, item.evidence_ref or "")
-        data.write_number(index, 14, by_id[item.row_id].emission.to("kilogram"))
+        if item.row_id in by_id:
+            data.write_number(index, 14, by_id[item.row_id].emission.to("kilogram"))
+        else:
+            data.write(index, 14, t("pending_factor"))
     stages = workbook.add_worksheet("Stages")
     stages.write_row(0, 0, [t("stage"), "kgCO2e"], header)
     for index, (stage, stage_emission) in enumerate(revision.result.by_stage.items(), start=1):

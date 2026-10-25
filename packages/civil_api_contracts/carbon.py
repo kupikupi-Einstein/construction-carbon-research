@@ -50,13 +50,17 @@ class ActivityRow(CarbonModel):
     category: str = Field(min_length=1, max_length=100)
     stage: LifeCycleStage
     quantity: Quantity
-    factor: EmissionFactor
+    factor: EmissionFactor | None = None
     evidence_ref: str | None = Field(default=None, max_length=1000)
 
     @model_validator(mode="after")
     def validate_row(self) -> ActivityRow:
         if self.quantity.canonical_value < 0:
             raise ValueError("activity quantity must be nonnegative")
+        if self.factor is None:
+            if not self.evidence_ref:
+                raise ValueError("pending activity requires evidence_ref explaining missing data")
+            return self
         if self.quantity.kind != self.factor.denominator.kind:
             raise ValueError("activity quantity and factor denominator must have the same kind")
         return self
@@ -141,6 +145,7 @@ class CarbonResult(CarbonModel):
     by_stage: dict[LifeCycleStage, Quantity]
     by_category: dict[str, Quantity]
     rows: tuple[CarbonRowResult, ...]
+    pending_row_ids: tuple[str, ...] = ()
     tver: TverScreeningResult | None = None
     warnings: tuple[str, ...] = ()
 

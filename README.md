@@ -19,7 +19,7 @@ $env:PYTHONPATH = "$PWD;$PWD\packages"
 
 Open `http://127.0.0.1:8125/carbon/`. The API schema is at `/docs`. Local project data defaults to `instance/carbon_research.sqlite3`; set `CIVIL_CARBON_DB_PATH` to change it. Set `CIVIL_CARBON_PDF_FONT` to a Thai-capable TTF path if PDF export cannot find a Thai font.
 
-In **ข้อมูลนำเข้า / Inputs**, click **โหลดตัวอย่าง BOQ เกียกกาย / Load Kiakkai BOQ example**. Then calculate and open each row under **ผลประเมิน / Results** for the formula, units, source EPD and BOQ assumptions. The sample has one pile-cap concrete row and one asphalt row using disclosed proxy assumptions; it is not the whole project.
+In **ข้อมูลนำเข้า / Inputs**, click **โหลดตัวอย่าง BOQ เกียกกาย / Load Kiakkai BOQ example**. The four rows include illustrative calculations for pile-cap concrete and asphalt, plus steel grating and HDPE pipe rows awaiting product data and emission factors. Open **ผลประเมิน / Results** for each row's calculation or missing-data explanation. The displayed sum covers only the calculated rows and is not the whole project.
 
 ## Verify
 

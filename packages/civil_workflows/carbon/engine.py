@@ -123,9 +123,13 @@ def _screen_tver(data: TverInput, asset_type: AssetType) -> TverScreeningResult:
 def calculate_project(project: CarbonProjectInput) -> CarbonResult:
     """Calculate one immutable revision without external state or default factors."""
     row_results: list[CarbonRowResult] = []
+    pending_row_ids: list[str] = []
     stage_totals: defaultdict[LifeCycleStage, float] = defaultdict(float)
     category_totals: defaultdict[str, float] = defaultdict(float)
     for row in project.rows:
+        if row.factor is None:
+            pending_row_ids.append(row.row_id)
+            continue
         value = calculate_activity_emission(
             row.quantity, row.factor.numerator, row.factor.denominator
         )
@@ -153,12 +157,15 @@ def calculate_project(project: CarbonProjectInput) -> CarbonResult:
             )
         )
     tver = _screen_tver(project.tver, project.asset_type) if project.tver else None
-    warnings = ("research_estimate_not_verified",)
+    warnings: tuple[str, ...] = ("research_estimate_not_verified",)
+    if pending_row_ids:
+        warnings += ("partial_total_missing_emission_factors",)
     return CarbonResult(
         total_emission=_emission(sum(stage_totals.values())),
         by_stage={stage: _emission(stage_totals[stage]) for stage in LifeCycleStage},
         by_category={key: _emission(value) for key, value in category_totals.items()},
         rows=tuple(row_results),
+        pending_row_ids=tuple(pending_row_ids),
         tver=tver,
         warnings=warnings,
     )

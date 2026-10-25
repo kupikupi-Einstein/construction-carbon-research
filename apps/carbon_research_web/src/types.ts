@@ -15,7 +15,7 @@ export type ActivityRow = {
   category: string;
   stage: Stage;
   quantity: Quantity;
-  factor: Factor;
+  factor: Factor | null;
   evidence_ref?: string | null;
 };
 export type TverInput = {
@@ -59,6 +59,7 @@ export type CarbonResult = {
     source_url: string;
     operands: Record<string, Quantity>;
   } }[];
+  pending_row_ids: string[];
   tver?: {
     methodology_id: string;
     screening_status: string;

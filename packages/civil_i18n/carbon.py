@@ -11,6 +11,14 @@ CARBON_CATALOG: dict[str, dict[str, str]] = {
         "th-TH": "ผลประเมินเบื้องต้น ยังไม่ผ่านการทวนสอบ",
         "en-US": "Research estimate — not independently verified",
     },
+    "partial_total": {
+        "th-TH": "ผลรวมบางส่วน: มีรายการรอข้อมูลตัวคูณการปล่อย",
+        "en-US": "Partial total: some rows await emission factors",
+    },
+    "pending_factor": {
+        "th-TH": "รอข้อมูล — ไม่รวมในผลรวม",
+        "en-US": "Pending data — excluded from total",
+    },
     "project": {"th-TH": "โครงการ", "en-US": "Project"},
     "asset_type": {"th-TH": "ประเภทงาน", "en-US": "Asset type"},
     "revision": {"th-TH": "ฉบับแก้ไข", "en-US": "Revision"},

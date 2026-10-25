@@ -222,7 +222,7 @@ def test_kiakkai_boq_worked_example_exposes_source_and_trace() -> None:
     assert response.status_code == 200, response.text
     example = response.json()
     assert example["asset_type"] == "bridge"
-    assert len(example["rows"]) == 2
+    assert len(example["rows"]) == 4
     assert example["rows"][0]["quantity"]["input_value"] == 891
     assert example["rows"][0]["factor"]["numerator"]["input_value"] == 268
     assert "epd17806" in example["rows"][0]["factor"]["source_url"]
@@ -233,11 +233,72 @@ def test_kiakkai_boq_worked_example_exposes_source_and_trace() -> None:
     assert asphalt["factor"]["numerator"]["input_value"] == 52.18
     assert "2.4" in asphalt["evidence_ref"]
     assert "mineralproducts.org" in asphalt["factor"]["source_url"]
+    steel, hdpe = example["rows"][2:]
+    assert steel["category"] == "steel"
+    assert steel["quantity"]["input_value"] == 80
+    assert steel["factor"] is None
+    assert hdpe["category"] == "hdpe-pipe"
+    assert hdpe["quantity"]["input_value"] == 3300
+    assert hdpe["factor"] is None
     result = client.post("/api/v1/carbon/calculate", json=example)
     assert result.status_code == 200, result.text
     assert result.json()["total_emission"]["input_value"] == pytest.approx(371_533.92)
     assert result.json()["rows"][1]["emission"]["input_value"] == pytest.approx(132_745.92)
+    assert len(result.json()["rows"]) == 2
+    assert result.json()["pending_row_ids"] == [steel["row_id"], hdpe["row_id"]]
+    assert "partial_total_missing_emission_factors" in result.json()["warnings"]
     asphalt_trace = result.json()["rows"][1]["trace"]
     assert asphalt_trace["operands"]["factor_denominator"]["input_unit"] == "tonne"
     assert result.json()["rows"][0]["trace"]["operands"]["activity_quantity"]["input_value"] == 891
     assert result.json()["tver"] is None
+
+
+def test_pending_materials_roundtrip_in_revisions_and_exports(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CIVIL_CARBON_DB_PATH", str(tmp_path / "carbon.sqlite3"))
+    client = TestClient(app)
+    example = client.get("/api/v1/carbon/examples/kiakkai").json()
+    saved = client.post("/api/v1/carbon/projects", json=example)
+    assert saved.status_code == 201, saved.text
+    revision = saved.json()
+    assert revision["result"]["pending_row_ids"] == [
+        example["rows"][2]["row_id"], example["rows"][3]["row_id"]
+    ]
+    project_id = revision["project_id"]
+    for file_format in ("docx", "xlsx", "pdf"):
+        response = client.get(
+            f"/api/v1/carbon/projects/{project_id}/revisions/1/export/{file_format}?locale=en-US"
+        )
+        assert response.status_code == 200, response.text
+        if file_format != "pdf":
+            with ZipFile(BytesIO(response.content)) as archive:
+                xml = b" ".join(
+                    archive.read(name) for name in archive.namelist() if name.endswith(".xml")
+                )
+            assert b"Pending data" in xml
+            assert b"hdpe-pipe" in xml
+            assert b"steel" in xml
+
+
+def test_csv_pending_factor_requires_missing_data_explanation() -> None:
+    client = TestClient(app)
+    header = (
+        "row_id,item_name,category,stage,quantity_kind,quantity_value,quantity_unit,"
+        "factor_numerator_value,factor_numerator_unit,factor_denominator_value,"
+        "factor_denominator_unit,source_name,source_version,evidence_ref\n"
+    )
+    pending = "hdpe,HDPE pipe,hdpe-pipe,A1-A3,length,3300,meter,,,,,,,Needs SDR and EPD\n"
+    response = client.post(
+        "/api/v1/carbon/import-csv",
+        files={"file": ("boq.csv", (header + pending).encode(), "text/csv")},
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()[0]["factor"] is None
+    assert response.json()[0]["quantity"]["input_value"] == 3300
+    invalid = "hdpe,HDPE pipe,hdpe-pipe,A1-A3,length,3300,meter,5,,,,,,Needs SDR\n"
+    response = client.post(
+        "/api/v1/carbon/import-csv",
+        files={"file": ("boq.csv", (header + invalid).encode(), "text/csv")},
+    )
+    assert response.status_code == 422

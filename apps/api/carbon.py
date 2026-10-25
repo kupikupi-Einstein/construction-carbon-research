@@ -85,6 +85,31 @@ async def import_boq_csv(file: Annotated[UploadFile, File()]) -> list[ActivityRo
             if len(rows) >= 10_000:
                 raise HTTPException(status_code=413, detail="CSV exceeds 10000 rows")
             kind = record["quantity_kind"]
+            factor_fields = (
+                "factor_numerator_value", "factor_numerator_unit",
+                "factor_denominator_value", "factor_denominator_unit",
+                "source_name", "source_version",
+            )
+            supplied = [bool((record[field] or "").strip()) for field in factor_fields]
+            if any(supplied) and not all(supplied):
+                raise ValueError("emission factor columns must be all filled or all blank")
+            factor = None
+            if all(supplied):
+                factor = {
+                    "numerator": {
+                        "kind": "ghg_emission",
+                        "input_value": float(record["factor_numerator_value"]),
+                        "input_unit": record["factor_numerator_unit"],
+                    },
+                    "denominator": {
+                        "kind": kind,
+                        "input_value": float(record["factor_denominator_value"]),
+                        "input_unit": record["factor_denominator_unit"],
+                    },
+                    "source_name": record["source_name"],
+                    "source_version": record["source_version"],
+                    "source_url": record.get("source_url") or None,
+                }
             rows.append(
                 ActivityRow.model_validate(
                     {
@@ -97,21 +122,7 @@ async def import_boq_csv(file: Annotated[UploadFile, File()]) -> list[ActivityRo
                             "input_value": float(record["quantity_value"]),
                             "input_unit": record["quantity_unit"],
                         },
-                        "factor": {
-                            "numerator": {
-                                "kind": "ghg_emission",
-                                "input_value": float(record["factor_numerator_value"]),
-                                "input_unit": record["factor_numerator_unit"],
-                            },
-                            "denominator": {
-                                "kind": kind,
-                                "input_value": float(record["factor_denominator_value"]),
-                                "input_unit": record["factor_denominator_unit"],
-                            },
-                            "source_name": record["source_name"],
-                            "source_version": record["source_version"],
-                            "source_url": record.get("source_url") or None,
-                        },
+                        "factor": factor,
                         "evidence_ref": record.get("evidence_ref") or None,
                     }
                 )
