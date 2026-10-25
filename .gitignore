@@ -5,6 +5,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 .pytest-*/
+.pytest_tmp_render/
 instance/
 apps/carbon_research_web/node_modules/
 apps/carbon_research_web/dist/

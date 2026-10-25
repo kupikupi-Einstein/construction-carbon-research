@@ -1,0 +1,15 @@
+.git
+.github
+.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/node_modules
+**/dist
+instance
+tests
+docs
+*.sqlite3
+*.pdf
+*.docx
+*.xlsx

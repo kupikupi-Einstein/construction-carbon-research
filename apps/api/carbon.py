@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import os
+from datetime import datetime
 from io import StringIO
 from pathlib import Path
 from typing import Annotated
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from civil_api_contracts.carbon import (
     ActivityRow,
@@ -35,6 +37,8 @@ def kiakkai_worked_example() -> CarbonProjectInput:
 
 
 def get_store() -> CarbonStore:
+    if os.environ.get("CIVIL_CARBON_PUBLIC_MODE") == "1":
+        raise HTTPException(status_code=404, detail="server project storage is disabled")
     configured = os.environ.get("CIVIL_CARBON_DB_PATH")
     path = (
         Path(configured)
@@ -50,6 +54,29 @@ StoreDependency = Annotated[CarbonStore, Depends(get_store)]
 class ReviseRequest(BaseModel):
     expected_revision_number: int = Field(ge=1)
     project: CarbonProjectInput
+
+
+class PrepareRevisionRequest(BaseModel):
+    project_id: UUID | None = None
+    revision_number: int = Field(default=1, ge=1)
+    project: CarbonProjectInput
+
+
+class SnapshotExportRequest(BaseModel):
+    project_id: UUID
+    revision_id: UUID
+    revision_number: int = Field(ge=1)
+    created_at: datetime
+    input_snapshot_hash: str
+    project: CarbonProjectInput
+
+
+@router.post("/prepare-revision", response_model=ProjectRevision)
+def prepare_revision(request: PrepareRevisionRequest) -> ProjectRevision:
+    """Compute a revision without saving a project on the public server."""
+    return CarbonStore._make_revision(
+        request.project_id or uuid4(), request.revision_number, request.project
+    )
 
 
 @router.post("/import-csv", response_model=list[ActivityRow])
@@ -193,6 +220,32 @@ def export_revision(
     store: StoreDependency,
     locale: str = "th-TH",
 ) -> Response:
+    try:
+        revision = store.get(project_id, revision_number)
+    except ProjectNotFoundError as error:
+        raise HTTPException(status_code=404, detail="revision not found") from error
+    return _render_revision(revision, file_format, locale)
+
+
+@router.post("/export-snapshot/{file_format}")
+def export_snapshot(
+    file_format: str, request: SnapshotExportRequest, locale: str = "th-TH"
+) -> Response:
+    """Render a browser-held revision after verifying its input hash and recalculating."""
+    input_json = request.project.model_dump_json(exclude_computed_fields=True)
+    expected_hash = "sha256:" + hashlib.sha256(input_json.encode()).hexdigest()
+    if request.input_snapshot_hash != expected_hash:
+        raise HTTPException(status_code=409, detail="revision input hash mismatch")
+    prepared = CarbonStore._make_revision(
+        request.project_id, request.revision_number, request.project
+    )
+    revision = prepared.model_copy(
+        update={"revision_id": request.revision_id, "created_at": request.created_at}
+    )
+    return _render_revision(revision, file_format, locale)
+
+
+def _render_revision(revision: ProjectRevision, file_format: str, locale: str) -> Response:
     if locale not in ("th-TH", "en-US"):
         raise HTTPException(status_code=422, detail="unsupported locale")
     renderers = {
@@ -208,16 +261,12 @@ def export_revision(
     }
     if file_format not in renderers:
         raise HTTPException(status_code=404, detail="unsupported export format")
-    try:
-        revision = store.get(project_id, revision_number)
-    except ProjectNotFoundError as error:
-        raise HTTPException(status_code=404, detail="revision not found") from error
     renderer, media_type = renderers[file_format]
     try:
         content = renderer(revision, locale)
     except ValueError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
-    filename = f"carbon-{project_id}-r{revision_number}.{file_format}"
+    filename = f"carbon-{revision.project_id}-r{revision.revision_number}.{file_format}"
     return Response(
         content=content,
         media_type=media_type,

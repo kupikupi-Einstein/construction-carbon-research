@@ -2,11 +2,23 @@
 
 ## สถานะปัจจุบัน
 
-- Repository เป็น Public และมี CI บน Pull Request แต่ตัวเว็บยังเป็นแอปพัฒนาในเครื่องที่ใช้ React, FastAPI และ SQLite
+- Repository เป็น Public และมี CI บน Pull Request; การรันในเครื่องยังใช้ React, FastAPI และ SQLite
 - GitHub Pages ให้บริการไฟล์ static และไม่รัน Python/FastAPI หรือฐานข้อมูล จึงนำไฟล์ `dist/` ปัจจุบันขึ้น Pages ตรง ๆ ไม่ได้: หน้าเว็บเรียก `/api/v1/carbon/*` สำหรับคำนวณ เปิดโครงการ นำเข้า และส่งออก
 - API ปัจจุบันไม่มีการยืนยันตัวตน: `GET /projects` เปิดรายการและข้อมูลโครงการทั้งหมด ส่วน `POST /projects` และ `/revisions` เขียนข้อมูลได้ ไม่ควรเปิด API นี้สู่สาธารณะ
 
 ## ทางเลือกการเผยแพร่
+
+### Render Free — แอปวิจัยสาธารณะ (ทางเลือกที่เลือก)
+
+`render.yaml` และ `Dockerfile` สร้าง Web Service เดียวที่ให้ React และ FastAPI ผ่าน HTTPS บน Render โหมดนี้ตั้ง `CIVIL_CARBON_PUBLIC_MODE=1` และ build frontend ด้วย `VITE_PUBLIC_BROWSER_PROJECTS=1`:
+
+- เก็บโครงการและ revision ใน `localStorage` ของเบราว์เซอร์แต่ละคน; ไม่มีบัญชีผู้ใช้หรือการซิงก์ข้ามอุปกรณ์ ล้างข้อมูลเบราว์เซอร์แล้วข้อมูลหาย ควร export ผลก่อนล้างข้อมูล
+- API คำนวณ, อ่านตัวอย่าง BOQ, นำเข้า CSV, สร้าง snapshot ที่ตรวจ hash ได้ และ export PDF/XLSX/DOCX; API โครงการที่ใช้ SQLite ถูกปิดในโหมดสาธารณะ
+- ข้อมูลที่กรอกถูกส่งไปยัง Render เพื่อคำนวณ/สร้างไฟล์ชั่วคราว แต่ไม่ถูกเก็บเป็นโครงการบนเซิร์ฟเวอร์ ห้ามกรอกข้อมูลลูกค้าลับหรือใช้ผลเพื่อยื่นเครดิตโดยไม่ให้มนุษย์ทวนสอบ
+- จำกัด request 5 MB และ 120 คำขอเขียนต่อนาทีต่อ client; โหมดฟรีอาจพักเครื่องหลังไม่มีผู้ใช้ 15 นาที ทำให้การเข้าเว็บครั้งแรกใช้เวลาราวหนึ่งนาที
+- งานวิจัยนี้ยังไม่ใช่การออกคาร์บอนเครดิตและยังไม่ผ่านการทวนสอบอิสระ
+
+หลัง PR ผ่าน CI ให้สร้าง Blueprint ใน Render จาก GitHub repository และ branch `codex/carbon-app` เพื่อลองใช้งาน ก่อนย้ายไป `main` หลัง review/merge; ห้าม deploy branch ที่ยังไม่ผ่าน CI โดยอัตโนมัติ
 
 ### A. ตัวอย่างวิจัยบน GitHub Pages
 
@@ -31,4 +43,4 @@
 - ถ้าใช้งานแอปเต็ม: สร้าง/เปิด/แก้ revision, นำเข้า, คำนวณ trace และ export PDF/XLSX/DOCX ผ่านการตรวจที่ production URL
 - มีวิธี rollback ไปยัง commit ก่อนหน้าและตรวจว่าข้อมูลไม่สูญหาย
 
-อ้างอิง: [GitHub Pages — Creating a site](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site), [Configuring a publishing source](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site)
+อ้างอิง: [Render FastAPI](https://render.com/docs/deploy-fastapi), [Render Free](https://render.com/docs/free), [Render Blueprint spec](https://render.com/docs/blueprint-spec), [GitHub Pages — Creating a site](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site)

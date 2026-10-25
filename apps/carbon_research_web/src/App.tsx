@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
-import { api } from "./api";
+import { api, browserProjectMode } from "./api";
 import { calculationPreview, needsFactor, normalizeProject, pauseFactor, resumeFactor } from "./factorStatus";
 import { findingText, tr } from "./i18n";
 import { findMatchingProject, projectContextKey, readProjectContext } from "./projectWorkspace";
@@ -340,6 +340,14 @@ export default function App() {
     setMessage("");
   }
 
+  async function downloadSelected(format: "pdf" | "xlsx" | "docx") {
+    if (!selected) return;
+    setBusy(true);
+    try { await api.downloadExport(selected, format, locale); }
+    catch (error) { console.error(error); setMessage(t("error")); }
+    finally { setBusy(false); }
+  }
+
   const checkbox = (key: keyof TverInput, label: string) => (
     <label className="check"><input type="checkbox" checked={draft.tver?.[key] === true}
       onChange={(event) => updateTver((value) => { (value as unknown as Record<string, unknown>)[key] = event.target.checked; })} />{label}</label>
@@ -359,7 +367,7 @@ export default function App() {
           onClick={() => projectId === revision.project_id ? setView("overview") : void openProject(revision.project_id)}>
           <span className="project-dot" /><span><strong>{revision.project.name}</strong><small>{t("revision")} {revision.revision_number} · {revision.project.rows.length} {t("rows")} · {t(revision.project.asset_type)}{projectId === revision.project_id ? ` · ${t("localDraft")}` : ""}</small></span>
         </button>)}</div>
-      <div className="sidebar-foot">{t("draft")}</div>
+      <div className="sidebar-foot">{browserProjectMode ? t("browserStorageHint") : t("draft")}</div>
     </aside>
 
     <main className="main-area">
@@ -371,6 +379,7 @@ export default function App() {
       <div className="content">
         <div className="page-heading"><div><div className="eyebrow">{t("researchKicker")}</div><h1>{draft.name || t("untitled")}</h1><p>{t("draft")}</p></div>
           <div className="heading-actions"><Button onClick={() => void calculate()} secondary disabled={busy}>{t("preview")}</Button><Button onClick={() => void save()} disabled={busy}>{projectId ? t("save") : t("create")}</Button></div></div>
+        {browserProjectMode && <div className="notice" role="note">{t("browserStorageHint")}</div>}
         {message && <div role="status" className="notice">{message}</div>}
         <nav className="tabs" aria-label={t("workspace")}>{views.map((item) => <button key={item} onClick={() => setView(item)}
           className={view === item ? "active" : ""}>{t(item)}</button>)}</nav>
@@ -457,7 +466,7 @@ export default function App() {
 
         {view === "exports" && <section className="card export-card"><div className="card-kicker">{t("outputKicker")}</div><h2>{t("exports")}</h2><p>{t("exportIntro")}</p>
           {projectId && selectedRevision ? <><Field label={t("current")}><select value={selectedRevision} onChange={(event) => chooseRevision(Number(event.target.value))}>{revisions.map((revision) => <option key={revision.revision_id} value={revision.revision_number}>{t("revision")} {revision.revision_number} · {new Date(revision.created_at).toLocaleDateString(locale)}</option>)}</select></Field>
-            <div className="export-options">{(["pdf", "xlsx", "docx"] as const).map((format) => <a key={format} className="export-option" href={api.exportUrl(projectId, selectedRevision, format, locale)}><span className="file-icon">{format.toUpperCase()}</span><strong>{t(format)}</strong><span>↓</span></a>)}</div>
+            <div className="export-options">{(["pdf", "xlsx", "docx"] as const).map((format) => <button key={format} type="button" className="export-option" disabled={busy} onClick={() => void downloadSelected(format)}><span className="file-icon">{format.toUpperCase()}</span><strong>{t(format)}</strong><span>↓</span></button>)}</div>
             <p className="manifest">SHA-256 · {selected?.input_snapshot_hash}</p></> : <p className="empty-copy">{t("noSaved")}</p>}</section>}
         <footer className="footer">{t("disclaimer")}</footer>
       </div>

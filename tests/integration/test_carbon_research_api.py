@@ -339,3 +339,34 @@ def test_csv_pending_factor_requires_missing_data_explanation() -> None:
         files={"file": ("boq.csv", (header + invalid).encode(), "text/csv")},
     )
     assert response.status_code == 422
+
+
+def test_public_mode_keeps_projects_in_browser_and_exports_verified_snapshot(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CIVIL_CARBON_PUBLIC_MODE", "1")
+    monkeypatch.setenv("CIVIL_CARBON_DB_PATH", str(tmp_path / "must-not-exist.sqlite3"))
+    client = TestClient(app)
+    assert client.get("/healthz").json() == {"status": "ok"}
+    assert client.get("/", follow_redirects=False).headers["location"] == "/carbon/"
+    assert client.get("/api/v1/carbon/projects").status_code == 404
+    assert client.post("/api/v1/carbon/projects", json=_project("road")).status_code == 404
+    prepared = client.post(
+        "/api/v1/carbon/prepare-revision", json={"project": _project("road")}
+    )
+    assert prepared.status_code == 200, prepared.text
+    revision = prepared.json()
+    assert revision["result"]["total_emission"]["input_value"] == 2100
+    payload = {key: revision[key] for key in (
+        "project_id", "revision_id", "revision_number", "created_at",
+        "input_snapshot_hash", "project",
+    )}
+    for file_format, signature in (("pdf", b"%PDF-"), ("docx", b"PK"), ("xlsx", b"PK")):
+        response = client.post(
+            f"/api/v1/carbon/export-snapshot/{file_format}?locale=en-US", json=payload
+        )
+        assert response.status_code == 200, response.text
+        assert response.content.startswith(signature)
+    payload["project"]["rows"][0]["quantity"]["input_value"] = 100
+    assert client.post("/api/v1/carbon/export-snapshot/pdf", json=payload).status_code == 409
+    assert not (tmp_path / "must-not-exist.sqlite3").exists()

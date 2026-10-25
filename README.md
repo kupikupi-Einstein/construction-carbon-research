@@ -36,6 +36,6 @@ npm --prefix apps/carbon_research_web run build
 npm --prefix apps/carbon_research_web test
 ```
 
-This is a local development app with SQLite and no authentication or RBAC. Do not expose it publicly or enter real customer data. Carbon factors, system boundaries, credit rights, and engineering assumptions need independent human review before certification or trading.
+The local development app uses SQLite and has no authentication or RBAC. Do not expose its default server mode publicly or enter real customer data. The Render research configuration disables server-side project storage and saves projects only in each browser. Carbon factors, system boundaries, credit rights, and engineering assumptions need independent human review before certification or trading.
 
-For publication, see [the public deployment plan](docs/PUBLIC_DEPLOYMENT_TH.md). GitHub Pages can host a static research sample; the editable app requires a separately hosted, secured API and persistent database.
+For publication, see [the public deployment plan](docs/PUBLIC_DEPLOYMENT_TH.md). Render can host the public browser-storage research app; shared persistent projects require a separately secured API and database.

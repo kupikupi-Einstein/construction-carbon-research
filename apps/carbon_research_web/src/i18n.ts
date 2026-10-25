@@ -8,6 +8,7 @@ const messages = {
   subtitle: ["พื้นที่วิจัยคาร์บอนสำหรับงานก่อสร้าง", "Construction carbon research workspace"],
   draft: ["ผลประเมินเบื้องต้น · ยังไม่ผ่านการทวนสอบ", "Research estimate · not independently verified"],
   projects: ["โครงการ", "Projects"],
+  browserStorageHint: ["โครงการบันทึกในเบราว์เซอร์นี้เท่านั้น · ล้างข้อมูลเบราว์เซอร์แล้วจะสูญหาย", "Projects are saved only in this browser · clearing browser data removes them"],
   newProject: ["+ สร้างโครงการ", "+ New project"],
   untitled: ["โครงการใหม่", "New project"],
   revision: ["ฉบับ", "Revision"],
