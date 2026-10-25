@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: construction-carbon-research
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: codex/carbon-app
+    autoDeployTrigger: checksPass
+    healthCheckPath: /healthz
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
