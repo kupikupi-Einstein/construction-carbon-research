@@ -63,6 +63,7 @@ def test_four_asset_worked_examples(asset_type: str) -> None:
     assert result.by_stage["A4"].to("kilogram") == 100
     assert result.by_stage["A5"].to("kilogram") == 0
     assert result.rows[0].trace.standard_id == "ISO 14040"
+    assert all(item.status == "no_direct_material_method" for item in result.credit_readiness)
 
 
 def test_quantity_factor_dimensions_and_missing_source_rejected() -> None:
@@ -246,6 +247,14 @@ def test_kiakkai_boq_worked_example_exposes_source_and_trace() -> None:
     assert result.json()["rows"][1]["emission"]["input_value"] == pytest.approx(132_745.92)
     assert len(result.json()["rows"]) == 2
     assert result.json()["pending_row_ids"] == [steel["row_id"], hdpe["row_id"]]
+    pathways = result.json()["credit_readiness"]
+    assert len(pathways) == 4
+    assert pathways[0]["methodology_id"] == "T-VER-P-METH-14-02"
+    assert pathways[1]["methodology_id"] is None
+    assert pathways[2]["reason_code"] == "steel_purchase_has_no_direct_method"
+    assert pathways[3]["methodology_id"] == "T-VER-S-METH-09-06"
+    assert pathways[3]["methodology_version"] == "02"
+    assert all(item["status"] != "potentially_applicable" for item in pathways)
     assert "partial_total_missing_emission_factors" in result.json()["warnings"]
     asphalt_trace = result.json()["rows"][1]["trace"]
     assert asphalt_trace["operands"]["factor_denominator"]["input_unit"] == "tonne"
@@ -279,6 +288,7 @@ def test_pending_materials_roundtrip_in_revisions_and_exports(
             assert b"Pending data" in xml
             assert b"hdpe-pipe" in xml
             assert b"steel" in xml
+            assert b"CreditScreen" in xml or b"credit pathway screening" in xml.lower()
 
 
 def test_csv_pending_factor_requires_missing_data_explanation() -> None:

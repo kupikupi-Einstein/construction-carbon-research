@@ -60,6 +60,16 @@ export type CarbonResult = {
     operands: Record<string, Quantity>;
   } }[];
   pending_row_ids: string[];
+  credit_readiness: {
+    row_id: string;
+    material_key: string;
+    methodology_id: string | null;
+    methodology_version: string | null;
+    source_url: string;
+    status: "separate_activity_required" | "no_direct_material_method";
+    reason_code: string;
+    footprint_status: "calculated" | "pending_factor";
+  }[];
   tver?: {
     methodology_id: string;
     screening_status: string;

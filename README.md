@@ -19,7 +19,9 @@ $env:PYTHONPATH = "$PWD;$PWD\packages"
 
 Open `http://127.0.0.1:8125/carbon/`. The API schema is at `/docs`. Local project data defaults to `instance/carbon_research.sqlite3`; set `CIVIL_CARBON_DB_PATH` to change it. Set `CIVIL_CARBON_PDF_FONT` to a Thai-capable TTF path if PDF export cannot find a Thai font.
 
-In **ข้อมูลนำเข้า / Inputs**, click **โหลดตัวอย่าง BOQ เกียกกาย / Load Kiakkai BOQ example**. The four rows include illustrative calculations for pile-cap concrete and asphalt, plus steel grating and HDPE pipe rows awaiting product data and emission factors. Open **ผลประเมิน / Results** for each row's calculation or missing-data explanation. The displayed sum covers only the calculated rows and is not the whole project.
+In **ข้อมูลนำเข้า / Inputs**, click **โหลดตัวอย่าง BOQ เกียกกาย / Load Kiakkai BOQ example**. The four rows include illustrative calculations for pile-cap concrete and asphalt, plus steel grating and HDPE pipe rows awaiting product data and emission factors. Open **ผลประเมิน / Results** for each row's calculation or missing-data explanation. The displayed sum covers only the calculated rows and is not the whole project. Older two-row sample drafts are expanded to four rows in the working draft; save to create a new revision. The left project list shows saved projects and the local draft.
+
+The **คาร์บอนเครดิต / Carbon credit** tab automatically screens each valid BOQ row as inputs change. It lists research pathways for concrete CO₂ use and plastic recovery/recycling, and explains why steel or asphalt purchases alone do not identify a credit methodology. This screening produces no credit quantity. The separate T-VER worksheet supports preliminary arithmetic checks for two implemented methods only; it requires independently sourced baseline, project and leakage emissions, rights and monitoring evidence. BOQ embodied emissions must not be copied into those fields as credit reductions.
 
 ## Verify
 

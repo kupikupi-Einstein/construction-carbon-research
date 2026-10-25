@@ -19,6 +19,34 @@ CARBON_CATALOG: dict[str, dict[str, str]] = {
         "th-TH": "รอข้อมูล — ไม่รวมในผลรวม",
         "en-US": "Pending data — excluded from total",
     },
+    "credit_readiness": {
+        "th-TH": "คัดกรองแนวทางคาร์บอนเครดิตจาก BOQ (ยังไม่ใช่เครดิต)",
+        "en-US": "Credit pathway screening from BOQ (not issued credits)",
+    },
+    "separate_activity_required": {
+        "th-TH": "ต้องมีกิจกรรมลดการปล่อยแยกจากการซื้อวัสดุ",
+        "en-US": "A reduction activity separate from material purchase is required",
+    },
+    "no_direct_material_method": {
+        "th-TH": "ไม่พบระเบียบวิธีให้เครดิตโดยตรงจากการซื้อวัสดุ",
+        "en-US": "No direct credit method identified for material purchase",
+    },
+    "credit_concrete_ccu_activity_required": {
+        "th-TH": "ต้องพิสูจน์การดักจับและใช้ CO2 ในการผลิตคอนกรีต",
+        "en-US": "Evidence of captured CO2 use in concrete production is required",
+    },
+    "credit_plastic_recycling_activity_required": {
+        "th-TH": "ต้องพิสูจน์กิจกรรมคัดแยกและรีไซเคิลพลาสติกจากขยะ",
+        "en-US": "Plastic recovery and recycling from waste must be demonstrated",
+    },
+    "credit_steel_purchase_has_no_direct_method": {
+        "th-TH": "ซื้อเหล็กไม่เกิดเครดิตโดยตรง ต้องระบุกิจกรรมลดการปล่อยที่ทำจริง",
+        "en-US": "Steel purchase gives no direct credit; identify a reduction activity",
+    },
+    "credit_material_purchase_has_no_direct_method": {
+        "th-TH": "ซื้อวัสดุไม่เกิดเครดิตโดยตรง ต้องระบุกิจกรรมลดการปล่อยที่ทำจริง",
+        "en-US": "Material purchase gives no direct credit; identify a reduction activity",
+    },
     "project": {"th-TH": "โครงการ", "en-US": "Project"},
     "asset_type": {"th-TH": "ประเภทงาน", "en-US": "Asset type"},
     "revision": {"th-TH": "ฉบับแก้ไข", "en-US": "Revision"},

@@ -11,15 +11,18 @@ from civil_api_contracts.carbon import (
     CarbonResult,
     CarbonRowResult,
     CarbonTraceStep,
+    CreditReadiness,
     LifeCycleStage,
     TverInput,
     TverScreeningResult,
 )
 from civil_codes.carbon import (
     CARBON_LCA_RULE,
+    CREDIT_PATHWAYS,
     TVER_METHODS,
     calculate_activity_emission,
     calculate_tver_reduction,
+    credit_material_key,
 )
 from civil_core.quantity import Quantity
 
@@ -157,6 +160,22 @@ def calculate_project(project: CarbonProjectInput) -> CarbonResult:
             )
         )
     tver = _screen_tver(project.tver, project.asset_type) if project.tver else None
+    credit_readiness = []
+    for row in project.rows:
+        pathway = CREDIT_PATHWAYS[credit_material_key(row.category)]
+        credit_readiness.append(
+            CreditReadiness(
+                row_id=row.row_id,
+                material_key=pathway.material_key,
+                methodology_id=pathway.methodology_id,
+                methodology_version=pathway.methodology_version,
+                source_url=pathway.source_url,
+                status="separate_activity_required" if pathway.methodology_id
+                else "no_direct_material_method",
+                reason_code=pathway.reason_code,
+                footprint_status="calculated" if row.factor else "pending_factor",
+            )
+        )
     warnings: tuple[str, ...] = ("research_estimate_not_verified",)
     if pending_row_ids:
         warnings += ("partial_total_missing_emission_factors",)
@@ -166,6 +185,7 @@ def calculate_project(project: CarbonProjectInput) -> CarbonResult:
         by_category={key: _emission(value) for key, value in category_totals.items()},
         rows=tuple(row_results),
         pending_row_ids=tuple(pending_row_ids),
+        credit_readiness=tuple(credit_readiness),
         tver=tver,
         warnings=warnings,
     )

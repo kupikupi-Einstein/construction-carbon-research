@@ -51,6 +51,58 @@ TVER_METHODS: dict[str, RuleReference] = {
 }
 
 
+@dataclass(frozen=True)
+class CreditPathwayReference:
+    material_key: str
+    methodology_id: str | None
+    methodology_version: str | None
+    source_url: str
+    reason_code: str
+
+
+CREDIT_PATHWAYS: dict[str, CreditPathwayReference] = {
+    "concrete": CreditPathwayReference(
+        "concrete", "T-VER-P-METH-14-02", "01",
+        "https://tver.tgo.or.th/database/public/methodology/99?lang=en",
+        "concrete_ccu_activity_required",
+    ),
+    "plastic": CreditPathwayReference(
+        "plastic", "T-VER-S-METH-09-06", "02",
+        "https://tver.tgo.or.th/database/public/methodologies/1?category_id=9&lang=en",
+        "plastic_recycling_activity_required",
+    ),
+    "steel": CreditPathwayReference(
+        "steel", None, None,
+        "https://tver.tgo.or.th/database/public/methodologies/1?lang=en",
+        "steel_purchase_has_no_direct_method",
+    ),
+    "asphalt": CreditPathwayReference(
+        "asphalt", None, None,
+        "https://tver.tgo.or.th/database/public/methodologies/1?lang=en",
+        "material_purchase_has_no_direct_method",
+    ),
+    "other": CreditPathwayReference(
+        "other", None, None,
+        "https://tver.tgo.or.th/database/public/methodologies/1?lang=en",
+        "material_purchase_has_no_direct_method",
+    ),
+}
+
+
+def credit_material_key(category: str) -> str:
+    """Map BOQ categories to research pathways, without inferring project eligibility."""
+    normalized = category.casefold()
+    if "hdpe" in normalized or "plastic" in normalized:
+        return "plastic"
+    if "concrete" in normalized:
+        return "concrete"
+    if "steel" in normalized:
+        return "steel"
+    if "asphalt" in normalized:
+        return "asphalt"
+    return "other"
+
+
 def calculate_activity_emission(
     activity_quantity: Quantity,
     factor_numerator: Quantity,

@@ -139,6 +139,17 @@ class TverScreeningResult(CarbonModel):
     credit_status: Literal["estimate_not_issued"] = "estimate_not_issued"
 
 
+class CreditReadiness(CarbonModel):
+    row_id: str
+    material_key: str
+    methodology_id: str | None
+    methodology_version: str | None
+    source_url: str
+    status: Literal["separate_activity_required", "no_direct_material_method"]
+    reason_code: str
+    footprint_status: Literal["calculated", "pending_factor"]
+
+
 class CarbonResult(CarbonModel):
     schema_version: Literal["civil.carbon.result.v1"] = "civil.carbon.result.v1"
     total_emission: Quantity
@@ -146,6 +157,7 @@ class CarbonResult(CarbonModel):
     by_category: dict[str, Quantity]
     rows: tuple[CarbonRowResult, ...]
     pending_row_ids: tuple[str, ...] = ()
+    credit_readiness: tuple[CreditReadiness, ...] = ()
     tver: TverScreeningResult | None = None
     warnings: tuple[str, ...] = ()
 

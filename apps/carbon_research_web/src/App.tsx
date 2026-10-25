@@ -17,6 +17,16 @@ import type {
 type View = "overview" | "inputs" | "tver" | "results" | "exports";
 
 const views: View[] = ["overview", "inputs", "tver", "results", "exports"];
+const legacyExampleIds = ["boq-p2-5.1.2.1-concrete-proxy", "boq-p2-4.2-asphalt-proxy"];
+const isLegacyExample = (project: ProjectInput) => project.name.startsWith("ตัวอย่าง BOQ เกียกกาย")
+  && project.rows.length > 0 && project.rows.length <= 2
+  && project.rows.every((row) => legacyExampleIds.includes(row.row_id));
+const upgradeExample = (project: ProjectInput, example: ProjectInput): ProjectInput => ({
+  ...project,
+  name: example.name,
+  description: example.description,
+  rows: [...project.rows, ...example.rows.filter((row) => !project.rows.some((old) => old.row_id === row.row_id))],
+});
 const stages: Stage[] = ["A1-A3", "A4", "A5"];
 const kinds = ["mass", "volume", "area", "length", "energy", "transport_work", "time", "dimensionless"];
 const kindKeys: Record<string, Parameters<typeof tr>[0]> = {
@@ -126,6 +136,25 @@ export default function App() {
   useEffect(() => { localStorage.setItem("carbon-research-draft-v1", JSON.stringify(draft)); }, [draft]);
   useEffect(() => { document.title = t("brand"); }, [locale]);
   useEffect(() => { void api.list().then(setProjects).catch(console.error); }, []);
+  useEffect(() => {
+    if (!isLegacyExample(draft)) return;
+    void api.kiakkaiExample().then((example) => {
+      setDraft((current) => isLegacyExample(current) ? upgradeExample(current, example) : current);
+    }).catch(console.error);
+  }, []);
+  useEffect(() => {
+    if (!draft.name.trim() || draft.rows.some((row) => !row.item_name.trim())) {
+      setResult(null);
+      return;
+    }
+    let active = true;
+    const timer = window.setTimeout(() => {
+      void api.calculate(draft).then((calculated) => {
+        if (active) setResult(calculated);
+      }).catch(() => { if (active) setResult(null); });
+    }, 400);
+    return () => { active = false; window.clearTimeout(timer); };
+  }, [draft]);
 
   const selected = revisions.find((revision) => revision.revision_number === selectedRevision);
   const comparison = revisions.length > 1 ? revisions[0] : null;
@@ -139,10 +168,19 @@ export default function App() {
       setLatestRevision(latest.revision_number);
       setRevisions(history);
       setSelectedRevision(latest.revision_number);
-      setDraft(latest.project);
-      setResult(latest.result);
-      setView("overview");
-      setMessage("");
+      if (isLegacyExample(latest.project)) {
+        const example = await api.kiakkaiExample();
+        const upgraded = upgradeExample(latest.project, example);
+        setDraft(upgraded);
+        setResult(await api.calculate(upgraded));
+        setView("inputs");
+        setMessage(t("legacyExampleUpdated"));
+      } else {
+        setDraft(latest.project);
+        setResult(latest.result);
+        setView("overview");
+        setMessage("");
+      }
     } catch (error) { console.error(error); setMessage(t("error")); }
     finally { setBusy(false); }
   }
@@ -254,11 +292,16 @@ export default function App() {
   return <div className="app-shell">
     <aside className="sidebar">
       <div className="brand"><div className="brand-mark">◈</div><div><strong>{t("brand")}</strong><span>{t("subtitle")}</span></div></div>
-      <div className="sidebar-section"><div className="sidebar-label">{t("projects")}</div><Button onClick={newProject} secondary>{t("newProject")}</Button></div>
-      <div className="project-list">{projects.map((revision) =>
+      <div className="sidebar-section"><div className="sidebar-label">{t("projects")} <span>{projects.length}</span></div><Button onClick={newProject} secondary>{t("newProject")}</Button></div>
+      <div className="project-list" aria-label={t("projects")}>
+        {!projectId && <button className="project-link active" onClick={() => setView("inputs")}>
+          <span className="project-dot" /><span><strong>{draft.name || t("untitled")}</strong><small>{t("localDraft")} · {draft.rows.length} {t("rows")}</small></span>
+        </button>}
+        {projects.length === 0 && <p className="sidebar-empty">{t("noProjects")}</p>}
+        {projects.map((revision) =>
         <button key={revision.project_id} className={`project-link${projectId === revision.project_id ? " active" : ""}`}
           onClick={() => void openProject(revision.project_id)}>
-          <span className="project-dot" /><span><strong>{revision.project.name}</strong><small>{t("revision")} {revision.revision_number} · {t(revision.project.asset_type)}</small></span>
+          <span className="project-dot" /><span><strong>{revision.project.name}</strong><small>{t("revision")} {revision.revision_number} · {revision.project.rows.length} {t("rows")} · {t(revision.project.asset_type)}</small></span>
         </button>)}</div>
       <div className="sidebar-foot">{t("draft")}</div>
     </aside>
@@ -317,11 +360,14 @@ export default function App() {
           </div>)}</div><Button onClick={() => { setDraft({ ...draft, rows: [...draft.rows, emptyRow()] }); setResult(null); }} secondary>{t("addRow")}</Button>
         </section>}
 
-        {view === "tver" && <section className="card editor-card"><div className="card-kicker">{t("tverKicker")}</div><h2>{t("tver")}</h2><div className="credit-explainer"><h3>{t("creditExplainerTitle")}</h3><p>{t("creditExplainer")}</p><h4>{t("creditOtherTitle")}</h4><ul>
+        {view === "tver" && <section className="card editor-card"><div className="card-kicker">{t("tverKicker")}</div><h2>{t("tver")}</h2>
+          <div className="credit-flow"><div><h3>{t("creditInputsTitle")}</h3><p>{t("creditInputsExplainer")}</p></div><div className="credit-flow-numbers"><span>{t("footprintPartial")}</span><strong>{result?.rows.length ? `${number(tonnes(result.total_emission))} tCO₂e` : "—"}</strong><span>{t("creditNotCalculated")}</span></div></div>
+          <div className="credit-screen"><h3>{t("autoScreenTitle")}</h3><p>{t("autoScreenIntro")}</p>{result?.credit_readiness.length ? <div className="credit-screen-list">{result.credit_readiness.map((item) => { const input = draft.rows.find((row) => row.row_id === item.row_id); const link = safeUrl(item.source_url); return <div className="credit-screen-row" key={item.row_id}><div><strong>{input?.item_name ?? item.row_id}</strong><small>{item.footprint_status === "pending_factor" ? t("pendingExcluded") : t("emission")}</small></div><div><span className="status-pill">{item.methodology_id ? t("activityRequired") : t("noDirectMethod")}</span><p>{findingText(item.reason_code, locale)}</p>{item.methodology_id && <p><strong>{t("creditPathway")}: {item.methodology_id} v{item.methodology_version}</strong></p>}{link && <a href={link} target="_blank" rel="noreferrer">{t("reference")} ↗</a>}</div></div>; })}</div> : <p>{t("dataGap")}</p>}<p className="credit-notice">{t("noCreditIssued")}</p></div>
+          <div className="credit-explainer"><h3>{t("creditExplainerTitle")}</h3><p>{t("creditExplainer")}</p><h4>{t("creditOtherTitle")}</h4><ul>
           <li><a href="https://tver.tgo.or.th/database/public/methodology/98?lang=en" target="_blank" rel="noreferrer">{t("creditCement")} · T-VER-P-METH-08-01 ↗</a></li>
           <li><a href="https://tver.tgo.or.th/database/public/methodologies/1?category_id=9&lang=en" target="_blank" rel="noreferrer">{t("creditPlastic")} · T-VER-S-METH-09-06 ↗</a></li>
           <li><a href="https://tver.tgo.or.th/database/public/methodologies/1?category_id=6&lang=en" target="_blank" rel="noreferrer">{t("creditEnergy")} ↗</a></li>
-        </ul><p>{t("creditMethodLimit")}</p></div><p className="section-copy">{t("methodIntro")}</p>
+        </ul><p>{t("creditMethodLimit")}</p></div><h3>{t("manualTverTitle")}</h3><p className="section-copy">{t("manualTverIntro")}</p><p className="section-copy">{t("methodIntro")}</p>
           <Field label={t("method")}><select value={draft.tver?.methodology_id ?? ""} onChange={(event) => { const method = event.target.value; setDraft({ ...draft, tver: method ? emptyTver(method as TverInput["methodology_id"]) : null }); setResult(null); }}>
             <option value="">{t("methodNone")}</option><option value="T-VER-S-METH-06-15">{t("methodBuilding")}</option><option value="T-VER-P-METH-14-02">{t("methodConcrete")}</option></select></Field>
           {draft.tver && <><div className="form-grid tver-grid"><Field label={t("monitoringYear")}><input type="number" value={draft.tver.monitoring_year} onChange={(event) => updateTver((value) => { value.monitoring_year = Number(event.target.value); })} /></Field>
@@ -329,7 +375,7 @@ export default function App() {
             {(["component_evidence_ref", "additionality_evidence_ref", "credit_rights_evidence_ref", "monitoring_plan_ref"] as const).map((key, index) => <Field key={key} label={t((["componentEvidence", "additionality", "rights", "monitoring"] as const)[index]!)}><input value={draft.tver?.[key] ?? ""} onChange={(event) => updateTver((value) => { value[key] = event.target.value; })} /></Field>)}</div>
             {draft.tver.methodology_id === "T-VER-S-METH-06-15" ? <div className="method-options"><Field label={t("buildingType")}><select value={draft.tver.building_type ?? "office"} onChange={(event) => updateTver((value) => { value.building_type = event.target.value; })}>{(["office", "hotel", "hospital", "shopping_center", "theatre", "service", "assembly", "condominium", "education"] as const).map((type) => <option key={type} value={type}>{t(type)}</option>)}</select></Field>
               <Field label={t("measures")}><input value={draft.tver.building_measures?.join(", ") ?? ""} onChange={(event) => updateTver((value) => { value.building_measures = event.target.value.split(",").map((item) => item.trim()).filter(Boolean); })} /></Field>{checkbox("new_equipment", t("newEquipment"))}</div>
-              : <div className="method-options check-grid">{checkbox("ready_mix", t("readyMix"))}{checkbox("captured_co2_used", t("capturedCo2"))}{checkbox("equivalent_strength", t("strength"))}{checkbox("commercial_use", t("commercial"))}{checkbox("concrete_recycled", t("recycled"))}{checkbox("product_traceable", t("traceable"))}</div>}</>}
+              : <div className="method-options check-grid">{checkbox("ready_mix", t("readyMix"))}{checkbox("captured_co2_used", t("capturedCo2"))}{checkbox("equivalent_strength", t("strength"))}{checkbox("commercial_use", t("commercial"))}{checkbox("concrete_recycled", t("recycled"))}{checkbox("product_traceable", t("traceable"))}</div>}{result?.tver && <div className="credit-manual-result"><strong>{t("estimate")}: {number(tonnes(result.tver.estimated_reduction))} tCO₂e</strong><p>{result.tver.screening_status === "potentially_applicable" ? t("potential") : result.tver.screening_status === "not_applicable" ? t("notApplicable") : t("insufficient")} · {t("noCreditIssued")}</p></div>}</>}
         </section>}
 
         {view === "results" && <div className="results-grid">{result ? <><section className="card result-hero"><div className="card-kicker">{t("totalKicker")}</div><div className="result-number">{result.rows.length ? number(tonnes(result.total_emission)) : "—"}<span>tCO₂e</span></div><p>{t("draft")}</p>{result.pending_row_ids.length > 0 && <p>{t("partialTotal")} ({result.pending_row_ids.length})</p>}</section>

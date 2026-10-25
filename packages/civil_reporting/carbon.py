@@ -132,6 +132,23 @@ def _trace_operands(operands: Mapping[str, object]) -> str:
     return "; ".join(f"{key} = {_quantity(value)}" for key, value in operands.items())
 
 
+def _credit_rows(revision: ProjectRevision, locale: str) -> list[list[str]]:
+    names = {row.row_id: row.item_name for row in revision.project.rows}
+    rows = [[carbon_text("item", locale), carbon_text("method", locale),
+             carbon_text("screening", locale), carbon_text("reference", locale)]]
+    for item in revision.result.credit_readiness:
+        rows.append([
+            names.get(item.row_id, item.row_id),
+            f"{item.methodology_id} v{item.methodology_version}" if item.methodology_id else "—",
+            (
+                f"{carbon_text(item.status, locale)}; "
+                f"{carbon_text('credit_' + item.reason_code, locale)}"
+            ),
+            item.source_url,
+        ])
+    return rows
+
+
 def render_carbon_docx(revision: ProjectRevision, locale: str = "th-TH") -> bytes:
     def t(key: str) -> str:
         return carbon_text(key, locale)
@@ -158,6 +175,9 @@ def render_carbon_docx(revision: ProjectRevision, locale: str = "th-TH") -> byte
         cells = table.add_row().cells
         for cell, value in zip(cells, row, strict=True):
             cell.text = value
+    document.add_heading(t("credit_readiness"), level=1)
+    for row in _credit_rows(revision, locale)[1:]:
+        document.add_paragraph(" | ".join(row))
     document.add_heading(t("trace"), level=1)
     for item in revision.result.rows:
         trace = item.trace
@@ -251,6 +271,12 @@ def render_carbon_xlsx(revision: ProjectRevision, locale: str = "th-TH") -> byte
     for index, (stage, stage_emission) in enumerate(revision.result.by_stage.items(), start=1):
         stages.write(index, 0, stage.value)
         stages.write_number(index, 1, stage_emission.to("kilogram"))
+    credit_sheet = workbook.add_worksheet("CreditScreen")
+    credit_sheet.set_column(0, 0, 48)
+    credit_sheet.set_column(1, 2, 62)
+    credit_sheet.set_column(3, 3, 90)
+    for index, row in enumerate(_credit_rows(revision, locale)):
+        credit_sheet.write_row(index, 0, row, header if index == 0 else normal)
     trace_sheet = workbook.add_worksheet("Trace")
     trace_sheet.set_column(0, 0, 24)
     trace_sheet.set_column(1, 5, 44)
@@ -338,6 +364,10 @@ def render_carbon_pdf(revision: ProjectRevision, locale: str = "th-TH") -> bytes
         )
     story.extend([Spacer(1, 12), Paragraph(escape(t("activities")), heading)])
     for row in _rows(revision, locale)[1:]:
+        story.append(Paragraph(" | ".join(escape(cell) for cell in row), small))
+        story.append(Spacer(1, 4))
+    story.extend([Spacer(1, 12), Paragraph(escape(t("credit_readiness")), heading)])
+    for row in _credit_rows(revision, locale)[1:]:
         story.append(Paragraph(" | ".join(escape(cell) for cell in row), small))
         story.append(Spacer(1, 4))
     story.extend([Spacer(1, 12), Paragraph(escape(t("trace")), heading)])
