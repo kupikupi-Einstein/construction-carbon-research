@@ -23,7 +23,7 @@ In **ข้อมูลนำเข้า / Inputs**, click **โหลดตั
 
 The **คาร์บอนเครดิต / Carbon credit** tab automatically screens each valid BOQ row as inputs change. It lists research pathways for concrete CO₂ use and plastic recovery/recycling, and explains why steel or asphalt purchases alone do not identify a credit methodology. This screening produces no credit quantity. The separate T-VER worksheet supports preliminary arithmetic checks for two implemented methods only; it requires independently sourced baseline, project and leakage emissions, rights and monitoring evidence. BOQ embodied emissions must not be copied into those fields as credit reductions.
 
-The **สถานะข้อมูลตัวคูณ / Emission factor status** checkbox in an input row pauses that row's factor and excludes the row from the partial total. Clearing the checkbox restores the entered factor, its unit and source; saved revisions keep the paused value too. A newly added row with no factor still needs a factor value, source and version when the checkbox is cleared. Pending rows need a note in the evidence field explaining the missing data.
+The **สถานะข้อมูลตัวคูณ / Emission factor status** checkbox in an input row pauses that row's factor and excludes the row from the partial total. Clearing the checkbox restores any previously entered factor, its unit and source; saved revisions keep the paused value too. If a row never had a factor (such as the sample steel and HDPE rows), clearing the checkbox opens blank EF fields; it does not estimate emissions automatically. Enter a suitable EF with a matching unit, source and version to include that row. Until then **Calculate** still shows a partial total from complete rows and identifies the excluded rows. Saving a revision requires complete factor details or an explicit pending state with a missing-data note in the evidence field.
 
 ## Verify
 
@@ -33,6 +33,7 @@ $env:PYTHONPATH = "$PWD;$PWD\packages"
 .venv\Scripts\python -m ruff check apps packages tests
 .venv\Scripts\python -m mypy -m apps.api.carbon -m civil_workflows.carbon.engine
 npm --prefix apps/carbon_research_web run build
+npm --prefix apps/carbon_research_web test
 ```
 
 This is a local development app with SQLite and no authentication or RBAC. Do not expose it publicly or enter real customer data. Carbon factors, system boundaries, credit rights, and engineering assumptions need independent human review before certification or trading.

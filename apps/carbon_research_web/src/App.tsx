@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ChangeEvent, ReactNode } from "react";
 import { api } from "./api";
+import { calculationPreview, needsFactor, normalizeProject, pauseFactor, resumeFactor } from "./factorStatus";
 import { findingText, tr } from "./i18n";
 import type {
   ActivityRow,
@@ -122,7 +123,7 @@ export default function App() {
   const [draft, setDraft] = useState<ProjectInput>(() => {
     try {
       const saved = localStorage.getItem("carbon-research-draft-v1");
-      return saved ? JSON.parse(saved) as ProjectInput : emptyProject();
+      return saved ? normalizeProject(JSON.parse(saved) as ProjectInput) : emptyProject();
     } catch { return emptyProject(); }
   });
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -149,15 +150,16 @@ export default function App() {
     }
     let active = true;
     const timer = window.setTimeout(() => {
-      void api.calculate(draft).then((calculated) => {
+      void api.calculate(calculationPreview(draft, t("draftPreviewEvidence"))).then((calculated) => {
         if (active) setResult(calculated);
       }).catch(() => { if (active) setResult(null); });
     }, 400);
     return () => { active = false; window.clearTimeout(timer); };
-  }, [draft]);
+  }, [draft, locale]);
 
   const selected = revisions.find((revision) => revision.revision_number === selectedRevision);
   const comparison = revisions.length > 1 ? revisions[0] : null;
+  const incompleteFactorRows = draft.rows.filter(needsFactor);
   const resultRows = useMemo(() => new Map(result?.rows.map((row) => [row.row_id, row]) ?? []), [result]);
 
   async function openProject(id: string) {
@@ -207,6 +209,7 @@ export default function App() {
       }),
     }));
     setResult(null);
+    setMessage("");
   }
 
   function updateTver(updater: (value: TverInput) => void) {
@@ -220,42 +223,36 @@ export default function App() {
   }
 
   async function calculate() {
-    if (draft.rows.some((row) => row.factor === null && !row.evidence_ref?.trim())) {
-      setResult(null);
-      setMessage(t("pendingEvidenceRequired"));
-      setView("inputs");
-      return;
-    }
-    if (draft.rows.some((row) => row.factor && (!row.factor.source_name.trim() || !row.factor.source_version.trim()))) {
-      setResult(null);
-      setMessage(t("factorRequired"));
-      setView("inputs");
-      return;
-    }
     setBusy(true);
-    try { setResult(await api.calculate(draft)); setMessage(""); setView("results"); }
+    try {
+      setResult(await api.calculate(calculationPreview(draft, t("draftPreviewEvidence"))));
+      setMessage(incompleteFactorRows.length
+        ? t("previewIncomplete").replace("{items}", incompleteFactorRows.map((row) => row.item_name).join(", "))
+        : "");
+      setView("results");
+    }
     catch (error) { console.error(error); setMessage(t("error")); }
     finally { setBusy(false); }
   }
 
   async function save() {
-    if (draft.rows.some((row) => row.factor === null && !row.evidence_ref?.trim())) {
-      setResult(null);
-      setMessage(t("pendingEvidenceRequired"));
+    if (incompleteFactorRows.length) {
+      setMessage(t("saveIncomplete").replace("{items}", incompleteFactorRows.map((row) => row.item_name).join(", ")));
       setView("inputs");
       return;
     }
-    if (draft.rows.some((row) => row.factor && (!row.factor.source_name.trim() || !row.factor.source_version.trim()))) {
-      setResult(null);
-      setMessage(t("factorRequired"));
+    const missingEvidenceRows = draft.rows.filter((row) => row.factor === null && !row.evidence_ref?.trim());
+    if (missingEvidenceRows.length) {
+      setMessage(t("saveEvidence").replace("{items}", missingEvidenceRows.map((row) => row.item_name).join(", ")));
       setView("inputs");
       return;
     }
     setBusy(true);
     try {
+      const validDraft = normalizeProject(draft);
       const revision = projectId && latestRevision
-        ? await api.revise(projectId, latestRevision, draft)
-        : await api.create(draft);
+        ? await api.revise(projectId, latestRevision, validDraft)
+        : await api.create(validDraft);
       const history = await api.revisions(revision.project_id);
       setProjectId(revision.project_id);
       setLatestRevision(revision.revision_number);
@@ -362,7 +359,7 @@ export default function App() {
 
         {view === "inputs" && <section className="card editor-card"><div className="section-head"><div><div className="card-kicker">{t("inventoryKicker")}</div><h2>{t("inputs")}</h2><p>{t("inputIntro")}</p></div>
           <div className="import-actions"><Button onClick={() => void loadExample()} secondary disabled={busy}>{t("loadExample")}</Button><label className="button secondary file-button">{t("csv")}<input type="file" accept=".csv,text/csv" onChange={(event) => void importCsv(event)} /></label></div></div>
-          <div className="input-guide"><h3>{t("inputGuideTitle")}</h3><ol><li>{t("inputStep1")}</li><li>{t("inputStep2")}</li><li>{t("inputStep3")}</li><li>{t("inputStep4")}</li></ol><p>{t("supportedMaterials")}</p><p>{t("inputCostNote")}</p><p>{t("inputExampleNote")}</p></div>
+          <div className="input-guide"><h3>{t("inputGuideTitle")}</h3><ol><li>{t("inputStep1")}</li><li>{t("inputStep2")}</li><li>{t("inputStep3")}</li><li>{t("inputStep4")}</li></ol><p>{t("supportedMaterials")}</p><p className="status-guide">{t("factorStatusGuide")}</p><p>{t("inputCostNote")}</p><p>{t("inputExampleNote")}</p></div>
           <div className="row-list">{draft.rows.map((row, index) => <div className="activity-card" key={row.row_id}>
             <div className="activity-head"><span className="number-badge">{String(index + 1).padStart(2, "0")}</span><strong>{row.item_name || t("item")}</strong><button className="text-button" onClick={() => { setDraft({ ...draft, rows: draft.rows.filter((item) => item.row_id !== row.row_id) }); setResult(null); }} disabled={draft.rows.length === 1}>{t("remove")}</button></div>
             <div className="form-grid rows-grid"><Field label={t("item")} wide><input value={row.item_name} onChange={(event) => updateRow(row.row_id, (next) => { next.item_name = event.target.value; })} /></Field>
@@ -370,7 +367,7 @@ export default function App() {
               <Field label={t("stage")}><select value={row.stage} onChange={(event) => updateRow(row.row_id, (next) => { next.stage = event.target.value as Stage; })}>{stages.map((stage) => <option key={stage}>{stage}</option>)}</select></Field>
               <Field label={t("quantity")} hint={t("quantityHint")}><input type="number" min="0" step="any" value={row.quantity.input_value} onChange={(event) => updateRow(row.row_id, (next) => { next.quantity.input_value = Number(event.target.value); })} /></Field>
               <Field label={t("unit")}><div className="compound"><select value={row.quantity.kind} aria-label={t("quantityKind")} onChange={(event) => updateRow(row.row_id, (next) => { const kind = event.target.value; if (next.quantity.kind !== kind) next.inactive_factor = null; next.quantity.kind = kind; next.quantity.input_unit = kindUnits[kind] ?? "dimensionless"; if (next.factor) { next.factor.denominator.kind = kind; next.factor.denominator.input_unit = kindUnits[kind] ?? "dimensionless"; } })}>{kinds.map((kind) => <option key={kind} value={kind}>{t(kindKeys[kind] ?? "kindCount")}</option>)}</select><input value={row.quantity.input_unit} aria-label={t("quantityUnit")} onChange={(event) => updateRow(row.row_id, (next) => { next.quantity.input_unit = event.target.value; })} /></div></Field>
-              <label className="field wide"><span>{t("factorStatus")}</span><span><input type="checkbox" checked={row.factor === null} onChange={(event) => updateRow(row.row_id, (next) => { if (event.target.checked) { next.inactive_factor = next.factor; next.factor = null; } else { next.factor = next.inactive_factor ?? { numerator: { kind: "ghg_emission", input_value: 0, input_unit: "kilogram" }, denominator: { kind: next.quantity.kind, input_value: 1, input_unit: next.quantity.input_unit }, source_name: "", source_version: "" }; next.inactive_factor = null; } })} /> {t("pendingFactor")}</span><small>{t("pendingHint")}</small></label>
+              <label className="field wide"><span>{t("factorStatus")}</span><span><input type="checkbox" checked={row.factor === null} onChange={(event) => updateRow(row.row_id, (next) => { Object.assign(next, event.target.checked ? pauseFactor(next) : resumeFactor(next)); })} /> {t("pendingFactor")}</span><small>{t("pendingHint")}</small></label>
               {row.factor && <>
               <Field label={`${t("factorTop")} (kgCO₂e)`} hint={t("factorTopHint")}><input type="number" min="0" step="any" value={row.factor.numerator.input_value} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.numerator.input_value = Number(event.target.value); })} /></Field>
               <Field label={t("factorBottom")} hint={t("factorBottomHint")}><div className="compound"><input type="number" min="0.000001" step="any" value={row.factor.denominator.input_value} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.denominator.input_value = Number(event.target.value); })} /><input value={row.factor.denominator.input_unit} aria-label={t("denominatorUnit")} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.denominator.input_unit = event.target.value; })} /></div></Field>
@@ -378,11 +375,11 @@ export default function App() {
               <Field label={t("version")}><input value={row.factor.source_version} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.source_version = event.target.value; })} /></Field>
               <Field label={t("sourceUrl")} wide><input type="url" value={row.factor.source_url ?? ""} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.source_url = event.target.value || null; })} /></Field>
               </>}
-              {row.factor && (!row.factor.source_name.trim() || !row.factor.source_version.trim()) && <p className="factor-warning">{t("factorRequired")}</p>}
+              {needsFactor(row) && <p className="factor-warning">{t("factorRequired")}</p>}
               {row.factor === null && !row.evidence_ref?.trim() && <p className="factor-warning">{t("pendingEvidenceRequired")}</p>}
               <Field label={t("evidence")} wide><input value={row.evidence_ref ?? ""} onChange={(event) => updateRow(row.row_id, (next) => { next.evidence_ref = event.target.value; })} /></Field></div>
             {resultRows.get(row.row_id) && <div className="row-result">{t("emission")}: {number(tonnes(resultRows.get(row.row_id)?.emission))} tCO₂e</div>}
-            {result?.pending_row_ids.includes(row.row_id) && <div className="row-result">{t("pendingExcluded")}</div>}
+            {result?.pending_row_ids.includes(row.row_id) && <div className="row-result">{needsFactor(row) ? t("factorRequired") : t("pendingExcluded")}</div>}
           </div>)}</div><Button onClick={() => { setDraft({ ...draft, rows: [...draft.rows, emptyRow()] }); setResult(null); }} secondary>{t("addRow")}</Button>
         </section>}
 
@@ -404,7 +401,7 @@ export default function App() {
               : <div className="method-options check-grid">{checkbox("ready_mix", t("readyMix"))}{checkbox("captured_co2_used", t("capturedCo2"))}{checkbox("equivalent_strength", t("strength"))}{checkbox("commercial_use", t("commercial"))}{checkbox("concrete_recycled", t("recycled"))}{checkbox("product_traceable", t("traceable"))}</div>}{result?.tver && <div className="credit-manual-result"><strong>{t("estimate")}: {number(tonnes(result.tver.estimated_reduction))} tCO₂e</strong><p>{result.tver.screening_status === "potentially_applicable" ? t("potential") : result.tver.screening_status === "not_applicable" ? t("notApplicable") : t("insufficient")} · {t("noCreditIssued")}</p></div>}</>}
         </section>}
 
-        {view === "results" && <div className="results-grid">{result ? <><section className="card result-hero"><div className="card-kicker">{t("totalKicker")}</div><div className="result-number">{result.rows.length ? number(tonnes(result.total_emission)) : "—"}<span>tCO₂e</span></div><p>{t("draft")}</p>{result.pending_row_ids.length > 0 && <p>{t("partialTotal")} ({result.pending_row_ids.length})</p>}</section>
+        {view === "results" && <div className="results-grid">{result ? <><section className="card result-hero"><div className="card-kicker">{t("totalKicker")}</div><div className="result-number">{result.rows.length ? number(tonnes(result.total_emission)) : "—"}<span>tCO₂e</span></div><p>{t("draft")}</p>{result.pending_row_ids.length > 0 && <p>{t("partialTotal")} ({result.pending_row_ids.length})</p>}{incompleteFactorRows.length > 0 && <p className="factor-warning">{t("previewIncomplete").replace("{items}", incompleteFactorRows.map((row) => row.item_name).join(", "))}</p>}</section>
           <section className="card chart-card"><h2>{t("stageChart")}</h2>{stages.map((stage) => { const value = tonnes(result.by_stage[stage]); const total = Math.max(tonnes(result.total_emission), 0.001); const hasRows = draft.rows.some((row) => row.stage === stage); return <div className="bar-row" key={stage}><strong>{stage}</strong><div className="bar-track"><div style={{ width: `${Math.min(100, value / total * 100)}%` }} /></div><span>{hasRows ? number(value) : "—"}</span></div>; })}<small>tCO₂e</small></section>
           <section className="card chart-card"><h2>{t("categories")}</h2>{Object.entries(result.by_category).map(([category, quantity]) => <div className="category-line" key={category}><span>{category}</span><strong>{number(tonnes(quantity))} tCO₂e</strong></div>)}</section>
           <section className="card trace-card"><h2>{t("traceTitle")}</h2><p>{t("traceIntro")}</p>
@@ -418,7 +415,7 @@ export default function App() {
                 <p><strong>{t("reference")}:</strong> {trace.standard_id} {trace.edition} · {trace.clause} {ruleUrl && <a href={ruleUrl} target="_blank" rel="noreferrer">↗</a>}</p>
               </div>
             </details>; })}
-            {result.pending_row_ids.map((id) => { const input = draft.rows.find((row) => row.row_id === id); return <details key={id}><summary><span>{input?.item_name ?? id}</span><strong>{t("pendingExcluded")}</strong></summary><div className="trace-detail"><p>{input ? quantityText(input.quantity) : "—"}</p><p><strong>{t("traceBoqEvidence")}:</strong> {input?.evidence_ref}</p><p>{t("pendingHint")}</p></div></details>; })}
+            {result.pending_row_ids.map((id) => { const input = draft.rows.find((row) => row.row_id === id); return <details key={id}><summary><span>{input?.item_name ?? id}</span><strong>{t("pendingExcluded")}</strong></summary><div className="trace-detail"><p>{input ? quantityText(input.quantity) : "—"}</p><p><strong>{t("traceBoqEvidence")}:</strong> {input?.evidence_ref || "—"}</p><p>{input && needsFactor(input) ? t("factorRequired") : t("pendingHint")}</p></div></details>; })}
           </section>
           {result.tver && <section className="card tver-result"><div className="card-kicker">T-VER</div><h2>{t("screening")}</h2><div className="credit-number">{number(tonnes(result.tver.estimated_reduction))} <span>tCO₂e</span></div><p>{t("estimate")}: {result.tver.methodology_id}</p><div className="status-pill">{result.tver.screening_status === "potentially_applicable" ? t("potential") : result.tver.screening_status === "not_applicable" ? t("notApplicable") : t("insufficient")}</div><p className="credit-notice">{t("noCredits")}</p><ul>{result.tver.findings.map((finding) => <li key={finding}>{findingText(finding, locale)}</li>)}</ul></section>}
         </> : <section className="card empty-state"><div className="empty-icon">◇</div><h2>{t("dataGap")}</h2><Button onClick={() => void calculate()} disabled={busy}>{t("preview")}</Button></section>}</div>}

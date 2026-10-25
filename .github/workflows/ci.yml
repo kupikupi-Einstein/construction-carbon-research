@@ -35,3 +35,5 @@ jobs:
           PYTHONPATH: .;packages
       - name: Build frontend
         run: npm --prefix apps/carbon_research_web run build
+      - name: Test factor status interactions
+        run: npm --prefix apps/carbon_research_web test
