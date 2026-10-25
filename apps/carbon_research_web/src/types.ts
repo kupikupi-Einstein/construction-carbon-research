@@ -16,6 +16,7 @@ export type ActivityRow = {
   stage: Stage;
   quantity: Quantity;
   factor: Factor | null;
+  inactive_factor?: Factor | null;
   evidence_ref?: string | null;
 };
 export type TverInput = {

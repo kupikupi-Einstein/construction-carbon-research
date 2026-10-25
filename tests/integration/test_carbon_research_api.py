@@ -77,6 +77,33 @@ def test_quantity_factor_dimensions_and_missing_source_rejected() -> None:
         CarbonProjectInput.model_validate(bad)
 
 
+def test_paused_factor_round_trips_and_restores_result(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setenv("CIVIL_CARBON_DB_PATH", str(tmp_path / "carbon.sqlite3"))
+    project = _project("road")
+    material = project["rows"][0]  # type: ignore[index]
+    original_factor = material.pop("factor")
+    material["factor"] = None
+    material["inactive_factor"] = original_factor
+    client = TestClient(app)
+    paused = client.post("/api/v1/carbon/projects", json=project)
+    assert paused.status_code == 201, paused.text
+    assert paused.json()["result"]["total_emission"]["input_value"] == 100
+    assert paused.json()["result"]["pending_row_ids"] == ["material-1"]
+
+    project_id = paused.json()["project_id"]
+    saved = client.get(f"/api/v1/carbon/projects/{project_id}").json()
+    saved_material = saved["project"]["rows"][0]
+    assert saved_material["factor"] is None
+    assert saved_material["inactive_factor"]["source_name"] == "worked-example factor"
+    saved_material["factor"] = saved_material.pop("inactive_factor")
+    restored = client.post("/api/v1/carbon/calculate", json=saved["project"])
+    assert restored.status_code == 200, restored.text
+    assert restored.json()["total_emission"]["input_value"] == 2100
+    assert restored.json()["pending_row_ids"] == []
+
+
 def test_tver_building_screening_keeps_estimate_separate_from_credit() -> None:
     project = _project("building")
     project["tver"] = {

@@ -23,6 +23,8 @@ In **ข้อมูลนำเข้า / Inputs**, click **โหลดตั
 
 The **คาร์บอนเครดิต / Carbon credit** tab automatically screens each valid BOQ row as inputs change. It lists research pathways for concrete CO₂ use and plastic recovery/recycling, and explains why steel or asphalt purchases alone do not identify a credit methodology. This screening produces no credit quantity. The separate T-VER worksheet supports preliminary arithmetic checks for two implemented methods only; it requires independently sourced baseline, project and leakage emissions, rights and monitoring evidence. BOQ embodied emissions must not be copied into those fields as credit reductions.
 
+The **สถานะข้อมูลตัวคูณ / Emission factor status** checkbox in an input row pauses that row's factor and excludes the row from the partial total. Clearing the checkbox restores the entered factor, its unit and source; saved revisions keep the paused value too. A newly added row with no factor still needs a factor value, source and version when the checkbox is cleared. Pending rows need a note in the evidence field explaining the missing data.
+
 ## Verify
 
 ```powershell

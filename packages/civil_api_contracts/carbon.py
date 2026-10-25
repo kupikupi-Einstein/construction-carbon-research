@@ -51,6 +51,7 @@ class ActivityRow(CarbonModel):
     stage: LifeCycleStage
     quantity: Quantity
     factor: EmissionFactor | None = None
+    inactive_factor: EmissionFactor | None = None
     evidence_ref: str | None = Field(default=None, max_length=1000)
 
     @model_validator(mode="after")
@@ -60,9 +61,13 @@ class ActivityRow(CarbonModel):
         if self.factor is None:
             if not self.evidence_ref:
                 raise ValueError("pending activity requires evidence_ref explaining missing data")
+            if self.inactive_factor and self.quantity.kind != self.inactive_factor.denominator.kind:
+                raise ValueError("inactive factor denominator must match activity quantity kind")
             return self
         if self.quantity.kind != self.factor.denominator.kind:
             raise ValueError("activity quantity and factor denominator must have the same kind")
+        if self.inactive_factor is not None:
+            raise ValueError("inactive factor is only allowed for pending activity")
         return self
 
 

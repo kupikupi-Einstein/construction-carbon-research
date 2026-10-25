@@ -220,6 +220,18 @@ export default function App() {
   }
 
   async function calculate() {
+    if (draft.rows.some((row) => row.factor === null && !row.evidence_ref?.trim())) {
+      setResult(null);
+      setMessage(t("pendingEvidenceRequired"));
+      setView("inputs");
+      return;
+    }
+    if (draft.rows.some((row) => row.factor && (!row.factor.source_name.trim() || !row.factor.source_version.trim()))) {
+      setResult(null);
+      setMessage(t("factorRequired"));
+      setView("inputs");
+      return;
+    }
     setBusy(true);
     try { setResult(await api.calculate(draft)); setMessage(""); setView("results"); }
     catch (error) { console.error(error); setMessage(t("error")); }
@@ -227,6 +239,18 @@ export default function App() {
   }
 
   async function save() {
+    if (draft.rows.some((row) => row.factor === null && !row.evidence_ref?.trim())) {
+      setResult(null);
+      setMessage(t("pendingEvidenceRequired"));
+      setView("inputs");
+      return;
+    }
+    if (draft.rows.some((row) => row.factor && (!row.factor.source_name.trim() || !row.factor.source_version.trim()))) {
+      setResult(null);
+      setMessage(t("factorRequired"));
+      setView("inputs");
+      return;
+    }
     setBusy(true);
     try {
       const revision = projectId && latestRevision
@@ -345,8 +369,8 @@ export default function App() {
               <Field label={t("category")}><input value={row.category} onChange={(event) => updateRow(row.row_id, (next) => { next.category = event.target.value; })} /></Field>
               <Field label={t("stage")}><select value={row.stage} onChange={(event) => updateRow(row.row_id, (next) => { next.stage = event.target.value as Stage; })}>{stages.map((stage) => <option key={stage}>{stage}</option>)}</select></Field>
               <Field label={t("quantity")} hint={t("quantityHint")}><input type="number" min="0" step="any" value={row.quantity.input_value} onChange={(event) => updateRow(row.row_id, (next) => { next.quantity.input_value = Number(event.target.value); })} /></Field>
-              <Field label={t("unit")}><div className="compound"><select value={row.quantity.kind} aria-label={t("quantityKind")} onChange={(event) => updateRow(row.row_id, (next) => { const kind = event.target.value; next.quantity.kind = kind; next.quantity.input_unit = kindUnits[kind] ?? "dimensionless"; if (next.factor) { next.factor.denominator.kind = kind; next.factor.denominator.input_unit = kindUnits[kind] ?? "dimensionless"; } })}>{kinds.map((kind) => <option key={kind} value={kind}>{t(kindKeys[kind] ?? "kindCount")}</option>)}</select><input value={row.quantity.input_unit} aria-label={t("quantityUnit")} onChange={(event) => updateRow(row.row_id, (next) => { next.quantity.input_unit = event.target.value; })} /></div></Field>
-              <label className="field wide"><span>{t("factorStatus")}</span><span><input type="checkbox" checked={row.factor === null} onChange={(event) => updateRow(row.row_id, (next) => { next.factor = event.target.checked ? null : { numerator: { kind: "ghg_emission", input_value: 0, input_unit: "kilogram" }, denominator: { kind: next.quantity.kind, input_value: 1, input_unit: next.quantity.input_unit }, source_name: "", source_version: "" }; })} /> {t("pendingFactor")}</span><small>{t("pendingHint")}</small></label>
+              <Field label={t("unit")}><div className="compound"><select value={row.quantity.kind} aria-label={t("quantityKind")} onChange={(event) => updateRow(row.row_id, (next) => { const kind = event.target.value; if (next.quantity.kind !== kind) next.inactive_factor = null; next.quantity.kind = kind; next.quantity.input_unit = kindUnits[kind] ?? "dimensionless"; if (next.factor) { next.factor.denominator.kind = kind; next.factor.denominator.input_unit = kindUnits[kind] ?? "dimensionless"; } })}>{kinds.map((kind) => <option key={kind} value={kind}>{t(kindKeys[kind] ?? "kindCount")}</option>)}</select><input value={row.quantity.input_unit} aria-label={t("quantityUnit")} onChange={(event) => updateRow(row.row_id, (next) => { next.quantity.input_unit = event.target.value; })} /></div></Field>
+              <label className="field wide"><span>{t("factorStatus")}</span><span><input type="checkbox" checked={row.factor === null} onChange={(event) => updateRow(row.row_id, (next) => { if (event.target.checked) { next.inactive_factor = next.factor; next.factor = null; } else { next.factor = next.inactive_factor ?? { numerator: { kind: "ghg_emission", input_value: 0, input_unit: "kilogram" }, denominator: { kind: next.quantity.kind, input_value: 1, input_unit: next.quantity.input_unit }, source_name: "", source_version: "" }; next.inactive_factor = null; } })} /> {t("pendingFactor")}</span><small>{t("pendingHint")}</small></label>
               {row.factor && <>
               <Field label={`${t("factorTop")} (kgCO₂e)`} hint={t("factorTopHint")}><input type="number" min="0" step="any" value={row.factor.numerator.input_value} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.numerator.input_value = Number(event.target.value); })} /></Field>
               <Field label={t("factorBottom")} hint={t("factorBottomHint")}><div className="compound"><input type="number" min="0.000001" step="any" value={row.factor.denominator.input_value} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.denominator.input_value = Number(event.target.value); })} /><input value={row.factor.denominator.input_unit} aria-label={t("denominatorUnit")} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.denominator.input_unit = event.target.value; })} /></div></Field>
@@ -354,6 +378,8 @@ export default function App() {
               <Field label={t("version")}><input value={row.factor.source_version} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.source_version = event.target.value; })} /></Field>
               <Field label={t("sourceUrl")} wide><input type="url" value={row.factor.source_url ?? ""} onChange={(event) => updateRow(row.row_id, (next) => { if (next.factor) next.factor.source_url = event.target.value || null; })} /></Field>
               </>}
+              {row.factor && (!row.factor.source_name.trim() || !row.factor.source_version.trim()) && <p className="factor-warning">{t("factorRequired")}</p>}
+              {row.factor === null && !row.evidence_ref?.trim() && <p className="factor-warning">{t("pendingEvidenceRequired")}</p>}
               <Field label={t("evidence")} wide><input value={row.evidence_ref ?? ""} onChange={(event) => updateRow(row.row_id, (next) => { next.evidence_ref = event.target.value; })} /></Field></div>
             {resultRows.get(row.row_id) && <div className="row-result">{t("emission")}: {number(tonnes(resultRows.get(row.row_id)?.emission))} tCO₂e</div>}
             {result?.pending_row_ids.includes(row.row_id) && <div className="row-result">{t("pendingExcluded")}</div>}
