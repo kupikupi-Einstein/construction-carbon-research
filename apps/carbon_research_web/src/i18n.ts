@@ -34,6 +34,7 @@ const messages = {
   starterLoaded: ["ตัวอย่าง BOQ 4 รายการพร้อมผลคำนวณบางส่วนแล้ว กดข้อมูลนำเข้าเพื่อดูและแก้ไข ก่อนบันทึกเป็นโครงการของคุณ", "The four-row BOQ example and partial result are ready. Open Inputs to review and edit it before saving your project."],
   starterLoadFailed: ["โหลดตัวอย่างไม่สำเร็จ โปรดลองกดโหลดตัวอย่าง BOQ เกียกกายอีกครั้ง", "The example could not load. Please try Load Kiakkai BOQ example again."],
   emptyResultHint: ["กรอกข้อมูลนำเข้าให้ครบ หรือโหลดตัวอย่าง BOQ เพื่อดูผลคำนวณ", "Complete the inputs or load the BOQ example to see a calculation."],
+  missingCalculationInputs: ["ก่อนคำนวณ โปรดกรอกชื่อโครงการและชื่อรายการวัสดุ/กิจกรรมทุกแถว หรือกดโหลดตัวอย่าง BOQ เกียกกาย", "Before calculating, enter a project name and a material/activity name for every row, or load the Kiakkai BOQ example."],
   legacyExampleUpdated: ["พบตัวอย่าง BOQ ฉบับเดิม จึงเติมรายการที่ขาดในฉบับร่างเป็น 4 แถวแล้ว กดบันทึกเพื่อสร้าง revision ใหม่", "The older BOQ sample has been expanded to four rows in this draft. Save to create a new revision."],
   noProjects: ["ยังไม่มีโครงการที่บันทึก", "No saved projects yet"],
   inputGuideTitle: ["กรอกข้อมูลอย่างไร", "How to enter data"],

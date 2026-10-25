@@ -3,7 +3,7 @@ import type { ChangeEvent, ReactNode } from "react";
 import { api, browserProjectMode } from "./api";
 import { calculationPreview, needsFactor, normalizeProject, pauseFactor, resumeFactor } from "./factorStatus";
 import { findingText, tr } from "./i18n";
-import { findMatchingProject, projectContextKey, readProjectContext } from "./projectWorkspace";
+import { findMatchingProject, hasNamedCalculationInputs, projectContextKey, readProjectContext } from "./projectWorkspace";
 import { draftStorageKey, shouldLoadStarterExample, starterSeenKey } from "./starterWorkspace";
 import type {
   ActivityRow,
@@ -203,7 +203,7 @@ export default function App() {
   }, []);
   useEffect(() => {
     if (skipAutoCalculationFor.current === draft) { skipAutoCalculationFor.current = null; return; }
-    if (!draft.name.trim() || draft.rows.some((row) => !row.item_name.trim())) {
+    if (!hasNamedCalculationInputs(draft)) {
       setResult(null);
       return;
     }
@@ -287,6 +287,11 @@ export default function App() {
   }
 
   async function calculate() {
+    if (!hasNamedCalculationInputs(draft)) {
+      setMessage(t("missingCalculationInputs"));
+      setView("inputs");
+      return;
+    }
     setBusy(true);
     try {
       setResult(await api.calculate(calculationPreview(draft, t("draftPreviewEvidence"))));

@@ -30,3 +30,6 @@ export const findMatchingProject = (draft: ProjectInput, projects: ProjectRevisi
     && saved.project.rows.every((row) => draftRowIds.has(row.row_id)));
   return matches.length === 1 ? matches[0]! : null;
 };
+
+export const hasNamedCalculationInputs = (project: ProjectInput): boolean =>
+  Boolean(project.name.trim() && project.rows.length && project.rows.every((row) => row.item_name.trim()));

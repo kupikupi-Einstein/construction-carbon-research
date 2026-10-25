@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { findMatchingProject, readProjectContext } from "../src/projectWorkspace.ts";
+import { findMatchingProject, hasNamedCalculationInputs, readProjectContext } from "../src/projectWorkspace.ts";
 
 const draft = {
   name: "Bridge BOQ", asset_type: "bridge",
@@ -23,4 +23,10 @@ test("saved context restores project identity without changing the draft", () =>
   assert.deepEqual(readProjectContext(storage), { projectId: "saved-1", latestRevision: 2, selectedRevision: 1 });
   assert.deepEqual(readProjectContext({ getItem: () => "broken json" }),
     { projectId: null, latestRevision: null, selectedRevision: null });
+});
+
+test("an empty new project is not submitted to calculation", () => {
+  assert.equal(hasNamedCalculationInputs({ name: "", rows: [{ item_name: "" }] }), false);
+  assert.equal(hasNamedCalculationInputs({ name: "Bridge", rows: [{ item_name: "" }] }), false);
+  assert.equal(hasNamedCalculationInputs({ name: "Bridge", rows: [{ item_name: "Steel" }] }), true);
 });
